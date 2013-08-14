@@ -14,8 +14,9 @@ Create a .deploy.yaml file in your repository along the lines of ::
     pip:
      - gunicorn
      - django
+    dependencies:
+     - nginx
 
-
-Whatever your build script does it must put the result into ./build/
+Most of these are optional of course. Whatever your build script does it must put the result into ./build/
 
 Then connect it to your CI system somehow

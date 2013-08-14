@@ -1,3 +1,5 @@
 install_location: /opt
 git_org: praekelt
 default_branch: master
+drop_command: scp %s repo@myreposerver:/var/www/repo/incoming/
+gpg_key: 77BBQGPGKEY
