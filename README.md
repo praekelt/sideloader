@@ -1,7 +1,7 @@
 Sideloader
 ==========
 
-Turn github repos into deb files (using fpm) and put them into a repo. 
+Turn (python related) github repos into deb files (using fpm) and put them into a repo. 
 
 Create a .deploy.yaml file in your repository along the lines of ::
 
