@@ -1,0 +1,3 @@
+install_location: /opt
+git_org: praekelt
+default_branch: master
