@@ -6,13 +6,10 @@ admin.autodiscover()
 
 urlpatterns = patterns('',
     # Examples:
-    # url(r'^$', 'skeleton.views.home', name='home'),
-    # url(r'^skeleton/', include('skeleton.foo.urls')),
+    url(r'^$', 'sideloader.views.index', name='home'),
+    url(r'^accounts/login/$', 'django.contrib.auth.views.login', {'template_name': 'login.html'}),
 
-    # Uncomment the admin/doc line below to enable admin documentation:
-    # url(r'^admin/doc/', include('django.contrib.admindocs.urls')),
 
     # Uncomment the next line to enable the admin:
     url(r'^admin/', include(admin.site.urls)),
-    #url(r'^celery/', include('celery_app.urls')),
 )
