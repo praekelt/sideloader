@@ -188,7 +188,7 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 
 # Tell Celery where to find the tasks
 CELERY_IMPORTS = (
-    #'celery_app.tasks',
+    'sideloader.tasks',
 )
 
 # Defer email sending to Celery, except if we're in debug mode,

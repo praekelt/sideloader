@@ -17,4 +17,4 @@ class Build(models.Model):
     # 0 - queued, 1 - Success, 2 - Failed
     state = models.IntegerField(default=0)
 
-    log = models.TextField()
+    log = models.TextField(default="")
