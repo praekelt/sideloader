@@ -138,6 +138,10 @@ class Sideloader:
         # Upgrade pip so we can use the package cache
         postscript.write("mkdir ~/.pip_cache\n")
 
+        # Help out our post-install scripts
+        postscript.write("INSTALLDIR=%s\n" % self.install_location)
+        postscript.write("VENV=%s\n" % self.venv)
+
         # re-install pip requirements
         postscript.write(
             "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install -r %s\n" % (
@@ -194,7 +198,13 @@ class Sideloader:
     def buildProject(self):
         self.createWorkspace()
         print "Config:", self.deploy_yam
-        os.system(self.deploy_yam['buildscript'])
+        os.system(
+            os.path.join(
+                self.workspace,
+                self.repo,
+                self.deploy_yam['buildscript']
+            )
+        )
         self.createPackage()
 
 sideloader = Sideloader()
