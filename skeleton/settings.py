@@ -188,7 +188,9 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 # CELERY_ALWAYS_EAGER = DEBUG
 
 # Tell Celery where to find the tasks
-CELERY_IMPORTS = ('celery_app.tasks',)
+CELERY_IMPORTS = (
+    #'celery_app.tasks',
+)
 
 # Defer email sending to Celery, except if we're in debug mode,
 # then just print the emails to stdout for debugging.
