@@ -1,0 +1,19 @@
+{% include "fragments/head.html" with nav_active="projects" %}
+
+    <div class="row-fluid">
+        <div class="span9">
+            <h4 style="margin-bottom:10px">{% if project %}Edit Project{% else %}Create Project{% endif %}</h4>
+            <form method="POST" class="form-horizontal">
+                {% csrf_token %}
+                {{form}}
+                <div class="control-group form-actions">
+                    <div class="controls">
+                        <input type="submit" class="btn btn-success" value="{% if project %}Update{% else %}Save{% endif %}">
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+{% include "fragments/foot.html" %}

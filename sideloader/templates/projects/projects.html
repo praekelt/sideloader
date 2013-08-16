@@ -1,0 +1,27 @@
+{% include "fragments/head.html" with nav_active="projects" %}
+
+    <div class="row-fluid">
+        <div class="span9">
+            <h4>Projects</h4>
+            <p>
+                <a href="{% url 'projects_create' %}" class="btn btn-success">Create new</a>
+                <table class="table table-hover table-bordered table-condensed">
+                    <tbody>
+                        {% for project in projects %}
+                        <tr>
+                            <td width="100%">{{ project.name }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a class="btn" href="{% url 'projects_edit' id=project.id %}" title="Edit settings"><i class="icon-edit"></i></a>
+                                    <a class="btn" href="{% url 'projects_build' id=project.id %}" title="Build!"><i class="icon-play"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </p>
+        </div>
+    </div>
+
+{% include "fragments/foot.html" %}
