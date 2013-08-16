@@ -1,7 +1,6 @@
 Django
 South
 gunicorn
-supervisor
 python-memcached
 raven
 nose
@@ -16,4 +15,4 @@ django-celery-email
 pep8
 pyflakes
 fabric
-yaml
+pyyaml
