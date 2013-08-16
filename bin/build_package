@@ -53,6 +53,7 @@ class Sideloader:
             'PIP': "PIP_DOWNLOAD_CACHE=~/.pip_cache %s" % self.pip,
             'WORKSPACE': self.workspace, 
             'BUILDDIR': self.build, 
+            'INSTALLDIR': self.install_location,
             'PATH': os.path.join(
                 self.build_venv, 'bin') + ':' + os.getenv('PATH')
         }
