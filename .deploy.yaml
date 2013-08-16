@@ -1,5 +1,5 @@
-buildscript: sideloader/scripts/deploy_sideloader
-postinstall: syncdb.sh
+buildscript: scripts/deploy_sideloader
+postinstall: scripts/postinstall.sh
 pip:
  - gunicorn
  - django
