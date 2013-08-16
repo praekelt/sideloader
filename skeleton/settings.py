@@ -141,14 +141,13 @@ INSTALLED_APPS = (
     'south',
     'gunicorn',
     'django_nose',
-    'raven.contrib.django.raven_compat',
+    #'raven.contrib.django.raven_compat',
     'djcelery',
     'djcelery_email',
     'debug_toolbar',
 
     # sample apps to explain usage
-    'app1',
-    'celery_app',
+    'sideloader',
 )
 
 # A sample logging configuration. The only tangible logging
