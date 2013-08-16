@@ -33,9 +33,18 @@ class Sideloader:
         self.workspace = os.path.join('/workspace', self.repo)
         self.build = os.path.join(self.workspace, 'build')
         self.venv = os.path.join(self.install_location, 'python')
-        self.easy_install = os.path.join(self.venv, 'bin/easy_install')
         self.pip = os.path.join(self.venv, 'bin/pip')
         self.python = os.path.join(self.venv, 'bin/python')
+
+        env = {
+            'VENV': self.venv, 
+            'PIP': "PIP_DOWNLOAD_CACHE=~/.pip_cache %s" % self.pip,
+            'WORKSPACE': self.workspace, 
+            'BUILDDIR': self.build
+        }
+        for k, v in self.env:
+            os.putenv(k, v)
+
 
         self.deploy_yam = {}
 
@@ -141,6 +150,7 @@ class Sideloader:
         # Help out our post-install scripts
         postscript.write("INSTALLDIR=%s\n" % self.install_location)
         postscript.write("VENV=%s\n" % self.venv)
+        postscript.write('PIP="PIP_DOWNLOAD_CACHE=~/.pip_cache %s"\n' % self.pip)
 
         # re-install pip requirements
         postscript.write(
