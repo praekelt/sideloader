@@ -3,6 +3,8 @@ Sideloader
 
 Turn (python related) github repos into deb files (using fpm) and put them into a repo. 
 
+Look at this repo to see how it deploys itself (meta!)
+
 Create a .deploy.yaml file in your repository along the lines of ::
 
     buildscript: buildsomething.sh
