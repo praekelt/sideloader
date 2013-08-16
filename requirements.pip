@@ -16,3 +16,4 @@ django-celery-email
 pep8
 pyflakes
 fabric
+yaml
