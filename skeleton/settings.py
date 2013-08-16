@@ -145,8 +145,7 @@ INSTALLED_APPS = (
     'djcelery',
     'djcelery_email',
     'debug_toolbar',
-
-    # sample apps to explain usage
+    'bootstrap',
     'sideloader',
 )
 
