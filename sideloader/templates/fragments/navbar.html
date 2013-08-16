@@ -1,13 +1,17 @@
       <div class="masthead">
         <h3 class="muted">Sideloader</h3>
+        {% if user.is_authenticated %}
         <div class="navbar">
           <div class="navbar-inner">
             <div class="container">
               <ul class="nav">
-                <li class="active"><a href="#">Home</a></li>
-                <li><a href="#">Projects</a></li>
+                <li {% if nav_active == "home" %}class="active"{% endif %}>
+                    <a href="/">Home</a></li>
+                <li {% if nav_active == "projects" %}class="active"{% endif %}>
+                    <a href="/projects">Projects</a></li>
               </ul>
             </div>
           </div>
         </div><!-- /.navbar -->
+        {% endif %}
       </div>

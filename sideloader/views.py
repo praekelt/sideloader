@@ -4,4 +4,8 @@ from django.contrib.auth.decorators import login_required
 
 @login_required
 def index(request):
-    return render_to_response("index.html")
+    if request.user.is_superuser:
+        pass
+
+    d = {'user': request.user}
+    return render_to_response("index.html", d)
