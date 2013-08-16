@@ -2,5 +2,5 @@
 
 cp -a sideloader ./build/
 
-$PIP install -r sideloader/requirements.pip
+pip install -r sideloader/requirements.pip
 
