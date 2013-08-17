@@ -1,0 +1,49 @@
+{% include "fragments/head.html" with nav_active="projects" %}
+
+    <div class="row-fluid">
+        <div class="span9">
+            <h4>Project details</h4>
+            <p>
+                <strong>Name:</strong> {{project.name}}
+                <br/>
+                <strong>Github url:</strong> {{project.github_url}}
+                <br/>
+                <strong>Branch:</strong> {{project.branch}}
+                <br/>
+                <br/>
+                <strong>Hook url:</strong> {{hook_uri}}
+            </p>
+        </div>
+    </div>
+
+    <div class="row-fluid">
+        <div class="span9">
+            <h4>Builds for {{project.name}}</h4>
+            <p>
+                <table class="table table-hover table-bordered table-condensed">
+                    <tbody>
+                        {% for build in builds %}
+                        {% if build.state == 0 %}<tr class="info">{%endif%}
+                        {% if build.state == 1 %}<tr class="success">{%endif%}
+                        {% if build.state == 2 %}<tr class="error">{%endif%}
+                            </td>
+                            <td width="100%">{{ build.build_time }}</td>
+                            <td>
+                                {% if build.state == 0 %}In Progress{%endif%}
+                                {% if build.state == 1 %}Success{%endif%}
+                                {% if build.state == 2 %}Failed{%endif%}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a class="btn" href="{% url 'build_view' id=build.id %}"><i class="icon-list" title="View log"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </p>
+        </div>
+    </div>
+
+{% include "fragments/foot.html" %}

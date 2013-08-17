@@ -1,0 +1,20 @@
+{% include "fragments/head.html" with nav_active="home" %}
+
+    <div class="row-fluid">
+        <div class="span9">
+            <h4>Account settings: {{user.username}}</h4>
+            <p>
+                <form method="POST" class="form-horizontal">
+                    {% csrf_token %}
+                    {{form}}
+                    <div class="control-group form-actions">
+                        <div class="controls">
+                            <input type="submit" class="btn btn-success" value="Save">
+                        </div>
+                    </div>
+                </form>
+            </p>
+        </div>
+    </div>
+
+{% include "fragments/foot.html" %}
