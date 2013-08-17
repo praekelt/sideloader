@@ -1,4 +1,5 @@
 {% include "fragments/head.html" %}
+    <hr/>
     <div class="jumbotron">
         {% if form.errors %}
         <p>Your username and password didn't match. Please try again.</p>
@@ -16,9 +17,13 @@
             <td>{{ form.password }}</td>
         </tr>
         </table>
-
-        <input type="submit" value="login" />
+        <br/>
+        <input class="btn" type="submit" value="Login" />
         <input type="hidden" name="next" value="{{ next }}" />
         </form>
+        <br/>
+        <a href="{% url 'socialauth_begin' backend='github' %}" class="btn">
+            <img src="/static/images/GitHub-Mark-32px.png"/> Login with GitHub
+        </a>
     </div>
 {% include "fragments/foot.html" %}

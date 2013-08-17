@@ -144,6 +144,7 @@ INSTALLED_APPS = (
     #'raven.contrib.django.raven_compat',
     'djcelery',
     'djcelery_email',
+    'social_auth',
     'debug_toolbar',
     'bootstrap',
     'sideloader',
@@ -217,3 +218,9 @@ RAVEN_CONFIG = {
     # DevOps will supply you with this.
     # 'dsn': 'http://public:secret@example.com/1',
 }
+
+try:
+    from local_settings import *
+except ImportError:
+    pass
+

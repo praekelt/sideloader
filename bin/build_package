@@ -72,7 +72,8 @@ class Sideloader:
         print self.build_cache
 
     def log(self, s):
-        print "[%s] %s" % (time.ctime(), s)
+        sys.stdout.write("[%s] %s\n" % (time.ctime(), s))
+        sys.stdout.flush()
 
     def saveCache(self):
         f = open(self.cachefile, 'wt')

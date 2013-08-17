@@ -9,7 +9,7 @@
                     <tbody>
                         {% for project in projects %}
                         <tr>
-                            <td width="100%">{{ project.name }}</td>
+                            <td width="100%"><a href="{% url 'projects_view' id=project.id %}">{{ project.name }}</a></td>
                             <td>
                                 <div class="btn-group">
                                     <a class="btn" href="{% url 'projects_edit' id=project.id %}" title="Edit settings"><i class="icon-edit"></i></a>

@@ -9,3 +9,10 @@ class ProjectForm(BootstrapModelForm):
         model = models.Project
         exclude = ('idhash', 'created_by_user',)
 
+class UserForm(BootstrapModelForm):
+    class Meta:
+        model = User
+        exclude = (
+            'email', 'username', 'is_staff', 'is_active', 'is_superuser',
+            'last_login', 'date_joined', 'groups', 'user_permissions'
+        )

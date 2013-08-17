@@ -19,7 +19,6 @@ def build(build, giturl, branch):
 
     if builder.returncode != 0:
         build.state = 2
-        print build.log
     else:
         build.state = 1
     

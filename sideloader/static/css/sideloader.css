@@ -42,3 +42,7 @@ body {
 .table tbody tr td {
     vertical-align:middle;
 }
+
+.usermast {
+    padding-top:1em;
+}
