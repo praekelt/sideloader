@@ -3,7 +3,11 @@
     <div class="row-fluid">
         <div class="span9">
             <p>
+                {% if build %}
                 <pre>{{build.log}}</pre>
+                {% else %}
+                Not authorized
+                {% endif %}
             </p>
         </div>
     </div>

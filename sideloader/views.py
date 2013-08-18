@@ -15,9 +15,18 @@ from celery.result import AsyncResult
 
 @login_required
 def index(request):
+    all_builds = Build.objects.filter(state=0).order_by('-build_time')
     if request.user.is_superuser:
-        pass
-    builds = Build.objects.filter(state=0).order_by('-build_time')
+        builds = all_builds
+    else:
+        projects = request.user.project_set.all()
+
+        builds = []
+        for build in all_builds:
+            if build.project in projects:
+                builds.append(build)
+            else:
+                builds.append({'build_time': build.build_time, 'project': {'name': 'Private'}})
 
     return render(request, "index.html", {
         'builds': builds
@@ -41,7 +50,10 @@ def accounts_profile(request):
 
 @login_required
 def projects_index(request):
-    projects = Project.objects.all()
+    if request.user.is_superuser:
+        projects = Project.objects.all()
+    else:
+        projects = request.user.project_set.all()
     
     d = {'projects': projects}
     return render(request, "projects/projects.html", d)
@@ -50,23 +62,32 @@ def projects_index(request):
 def build_view(request, id):
     build = Build.objects.get(id=id)
 
-    return render(request, 'projects/build_view.html', {
-        'build': build
-    })
+    if (request.user.is_superuser) or (
+        build.project in request.user.project_set.all()):
+        d = {'build': build}
+    else:
+        d = {}
+
+    return render(request, 'projects/build_view.html', d)
 
 @login_required
 def projects_view(request, id):
     project = Project.objects.get(id=id)
-    builds = Build.objects.filter(project=project).order_by('-build_time')
+    if project in request.user.project_set.all():
+        builds = Build.objects.filter(project=project).order_by('-build_time')
 
-    hook_uri = urlparse.urljoin(request.build_absolute_uri(), 
-        reverse('api_build', kwargs={'hash':project.idhash}))
+        hook_uri = urlparse.urljoin(request.build_absolute_uri(), 
+            reverse('api_build', kwargs={'hash':project.idhash}))
 
-    return render(request, 'projects/view.html', {
-        'project': project, 
-        'hook_uri': hook_uri,
-        'builds': builds
-    })
+        d = {
+            'project': project, 
+            'hook_uri': hook_uri,
+            'builds': builds
+        }
+    else:
+        d = {}
+
+    return render(request, 'projects/view.html', d)
 
 @login_required
 def projects_create(request):
@@ -94,28 +115,32 @@ def projects_create(request):
 @login_required
 def projects_edit(request, id):
     project = Project.objects.get(id=id)
-    if request.method == "POST":
-        form = forms.ProjectForm(request.POST, instance=project)
+    if project in request.user.project_set.all():
+        if request.method == "POST":
+            form = forms.ProjectForm(request.POST, instance=project)
 
-        if form.is_valid():
-            project = form.save(commit=False)
-            project.save()
-            form.save_m2m()
+            if form.is_valid():
+                project = form.save(commit=False)
+                project.save()
+                form.save_m2m()
 
-            return redirect('projects_index')
+                return redirect('projects_index')
 
+        else:
+            form = forms.ProjectForm(instance=project)
+        d = {
+            'form': form, 
+            'project': project
+        }
     else:
-        form = forms.ProjectForm(instance=project)
+        d = {}
 
-    return render(request, 'projects/create_edit.html', {
-        'form': form,
-        'project': project
-    })
+    return render(request, 'projects/create_edit.html', d)
 
 @login_required
 def projects_build(request, id):
     project = Project.objects.get(id=id)
-    if project:
+    if project and (project in request.user.project_set.all()):
         current_builds = Build.objects.filter(project=project, state=0)
         if not current_builds:
             build = Build.objects.create(project=project, state=0)

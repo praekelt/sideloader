@@ -1,5 +1,7 @@
 {% include "fragments/head.html" with nav_active="projects" %}
-
+    {% if not project %}
+    <div class="row-fluid"><div class="span9">Not Authorized</div></div>
+    {% else %}
     <div class="row-fluid">
         <div class="span9">
             <h4>Project details</h4>
@@ -45,5 +47,5 @@
             </p>
         </div>
     </div>
-
+    {% endif %}
 {% include "fragments/foot.html" %}
