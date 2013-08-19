@@ -213,6 +213,9 @@ SOUTH_TESTS_MIGRATE = False  # Do not run the migrations for our tests.
                              # for the tests and as such nothing needs to be
                              # migrated.
 
+LOGIN_REDIRECT_URL = '/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/accounts/profile/'
+
 try:
     from local_settings import *
 except ImportError:
