@@ -11,13 +11,43 @@
                         {% for build in builds %}
                         <tr class="info">
                             <td>{{ build.build_time }}</td>
-                            <td>{{ build.project.name }}</td>
+                            <td width="70%">{{ build.project.name }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
                 {% else %}
                 No builds in progress
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row-fluid">
+        <div class="span9">
+            <h4>Last builds</h4>
+            <p>
+                {% if last_builds %}
+                <table class="table table-hover table-bordered table-condensed">
+                    <thead><tr><th>Build time</th><th>Project</th><th>State</th></tr></thead>
+                    <tbody>
+                        {% for build in last_builds %}
+                        {% if build.state == 0 %}<tr class="info">{%endif%}
+                        {% if build.state == 1 %}<tr class="success">{%endif%}
+                        {% if build.state == 2 %}<tr class="error">{%endif%}
+                            <td>{{ build.build_time }}</td>
+                            <td width="60%">{{ build.project.name }}</td>
+                            <td>
+                                {% if build.state == 0 %}In Progress{%endif%}
+                                {% if build.state == 1 %}Success{%endif%}
+                                {% if build.state == 2 %}Failed{%endif%}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                No builds
                 {% endif %}
             </p>
         </div>

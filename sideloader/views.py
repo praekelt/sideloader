@@ -15,11 +15,13 @@ from celery.result import AsyncResult
 
 @login_required
 def index(request):
-    all_builds = Build.objects.filter(state=0).order_by('-build_time')
     if request.user.is_superuser:
-        builds = all_builds
+        builds = Build.objects.filter(state=0).order_by('-build_time')
+        last_builds = Build.objects.filter(state__gt=0).order_by('-build_time')[:10]
     else:
         projects = request.user.project_set.all()
+        all_builds = Build.objects.filter(state=0).order_by('-build_time')
+        last_builds = Build.objects.filter(state__gt=0, project__in=projects).order_by('-build_time')[:10]
 
         builds = []
         for build in all_builds:
@@ -29,7 +31,8 @@ def index(request):
                 builds.append({'build_time': build.build_time, 'project': {'name': 'Private'}})
 
     return render(request, "index.html", {
-        'builds': builds
+        'builds': builds, 
+        'last_builds': last_builds
     })
 
 @login_required
@@ -91,6 +94,9 @@ def projects_view(request, id):
 
 @login_required
 def projects_create(request):
+    if not request.user.is_superuser:
+        return redirect('home')
+
     if request.method == "POST":
         form = forms.ProjectForm(request.POST)
         if form.is_valid():
@@ -114,6 +120,9 @@ def projects_create(request):
 
 @login_required
 def projects_edit(request, id):
+    if not request.user.is_superuser:
+        return redirect('home')
+
     project = Project.objects.get(id=id)
     if project in request.user.project_set.all():
         if request.method == "POST":

@@ -4,7 +4,9 @@
         <div class="span9">
             <h4>Projects</h4>
             <p>
+                {% if user.is_superuser %}
                 <a href="{% url 'projects_create' %}" class="btn btn-success">Create new</a>
+                {% endif %}
                 <table class="table table-hover table-bordered table-condensed">
                     <tbody>
                         {% for project in projects %}
