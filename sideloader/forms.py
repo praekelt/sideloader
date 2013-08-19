@@ -10,6 +10,7 @@ class ProjectForm(BootstrapModelForm):
         exclude = ('idhash', 'created_by_user',)
 
 class UserForm(BootstrapModelForm):
+    password = forms.CharField(widget=forms.PasswordInput(), initial='')
     class Meta:
         model = User
         exclude = (

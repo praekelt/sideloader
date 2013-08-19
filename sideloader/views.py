@@ -41,8 +41,9 @@ def accounts_profile(request):
         form = forms.UserForm(request.POST, instance=request.user)
 
         if form.is_valid():
-            form.save()
-            messages.info(request, 'User settings updated.')
+            user = form.save(commit=False)
+            user.set_password(form.cleaned_data['password'])
+            user.save()
             return redirect('home')
     else:
         form = forms.UserForm(instance=request.user)
