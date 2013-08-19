@@ -13,7 +13,7 @@ def abspath(*args):
     """convert relative paths to absolute paths relative to PROJECT_ROOT"""
     return os.path.join(PROJECT_ROOT, *args)
 
-DEBUG = True
+DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
@@ -141,7 +141,7 @@ INSTALLED_APPS = (
     'south',
     'gunicorn',
     'django_nose',
-    #'raven.contrib.django.raven_compat',
+    'raven.contrib.django.raven_compat',
     'djcelery',
     'djcelery_email',
     'social_auth',
@@ -212,12 +212,6 @@ SOUTH_TESTS_MIGRATE = False  # Do not run the migrations for our tests.
                              # We are assuming that our models.py are correct
                              # for the tests and as such nothing needs to be
                              # migrated.
-
-# Sentry configuration
-RAVEN_CONFIG = {
-    # DevOps will supply you with this.
-    # 'dsn': 'http://public:secret@example.com/1',
-}
 
 try:
     from local_settings import *
