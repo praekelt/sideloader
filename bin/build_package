@@ -215,13 +215,18 @@ class Sideloader:
         for dep in deplist:
             depends += ' -d "%s"' % dep
 
+        if self.deploy_yam.get('user'):
+            user = '--deb-user %s ' % self.deploy_yam['user']
+        else:
+            user = ''
         self.log("Building .deb package")
         os.system(
-            'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s *' % (
+            'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
                 self.repo,
                 version,
                 postinstall,
-                depends
+                depends,
+                user
             )
         )
 
