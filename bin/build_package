@@ -217,7 +217,6 @@ class Sideloader:
 
         if self.deploy_yam.get('user'):
             user = '--deb-user %s ' % self.deploy_yam['user']
-            os.system('/usr/sbin/adduser --system --no-create-home --group --disabled-password %s' % self.deploy_yam['user'])
         else:
             user = ''
         self.log("Building .deb package")
