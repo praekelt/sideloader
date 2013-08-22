@@ -34,11 +34,14 @@
                                 {% if build.state == 0 %}In Progress{%endif%}
                                 {% if build.state == 1 %}Success{%endif%}
                                 {% if build.state == 2 %}Failed{%endif%}
+                                {% if build.state == 3 %}Cancelled{%endif%}
                             </td>
                             <td>
                                 <div class="btn-group">
                                     <a class="btn" href="{% url 'build_view' id=build.id %}"><i class="icon-list" title="View log"></i></a>
+                                    {% if build.state == 0 %}
                                     <a class="btn" href="{% url 'build_cancel' id=build.id %}"><i class="icon-remove" title="Cancel"></i></a>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
