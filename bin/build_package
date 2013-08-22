@@ -6,6 +6,7 @@ import sys
 import shutil
 import json
 import time
+import argparse
 
 
 class Sideloader:
@@ -16,23 +17,22 @@ class Sideloader:
 
         self.install_location = self.sideloader_config['install_location']
 
-        # Handle args better, but confparse is a pain in the ass
-        try:
-            self.githuburl = sys.argv[1]
-        except:
-            print "Usage: build_package github_url [branch]"
-            sys.exit(1)
+        args = self.parseArgs()
 
-        try:
-            self.branch = sys.argv[2]
-        except:
-            self.branch = self.sideloader_config.get('default_branch', 'develop')
+        self.githuburl = args.repo
 
-        try:
-            self.deploy_file = sys.argv[3]
-        except:
-            self.deploy_file = '.deploy.yaml'
-            
+        self.branch = self.sideloader_config.get('default_branch', 'develop')
+        self.deploy_file = '.deploy.yaml'
+        self.push_command = self.sideloader_config.get('drop_command', None)
+
+        if args.branch:
+            self.branch = args.branch
+
+        if args.deploy_file:
+            self.deploy_file = args.deploy_file
+
+        if args.push:
+            self.push_command = args.push
 
         # Rip the github url apart
         chunks = self.githuburl.split(':')[1].split('/')
@@ -75,6 +75,17 @@ class Sideloader:
             self.build_cache = {}
 
         print self.build_cache
+
+    def parseArgs(self):
+        parser = argparse.ArgumentParser(description='Build a github repo')
+        parser.add_argument("repo", help="Git repo", type=str)
+        parser.add_argument("--branch", help="Git branch")
+        parser.add_argument("--deploy-file", help="Deploy YAML file (default .deploy.yaml)")
+        parser.add_argument("--push", help="Push command")
+        args = parser.parse_args()
+
+        return args
+
 
     def log(self, s):
         sys.stdout.write("[%s] %s\n" % (time.ctime(), s))
@@ -120,7 +131,7 @@ class Sideloader:
         os.system('virtualenv --no-site-packages %s' % self.build_venv)
 
         self.deploy_yam = yaml.load(
-            open(os.path.join(self.workspace, self.repo, '.deploy.yaml'))
+            open(os.path.join(self.workspace, self.repo, self.deploy_file))
         )
 
         self.log("Installing pip dependencies")
@@ -209,7 +220,7 @@ class Sideloader:
 
         os.chdir(package)
 
-        # Figure out a build version or use the one in .deploy.yaml
+        # Figure out a build version or use the one in self.deploy_file
         build_num = self.getBuildNumber()
         version = self.deploy_yam.get('version', "0.%s" % build_num)
 
@@ -243,7 +254,7 @@ class Sideloader:
 
         self.log("Uploading package")
         os.system(
-            self.sideloader_config['drop_command'] % "*.deb"
+            self.drop_command % "*.deb"
         )
 
         # Save the cache at this point, because the packaging was successful

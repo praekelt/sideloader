@@ -3,8 +3,12 @@ from django import forms
 from bootstrap.forms import BootstrapModelForm, BootstrapForm
 import models
 
-class ProjectForm(BootstrapModelForm):
 
+class ReleaseForm(BootstrapModelForm):
+    class Meta:
+        model = models.ReleaseStream
+
+class ProjectForm(BootstrapModelForm):
     class Meta:
         model = models.Project
         exclude = ('idhash', 'created_by_user',)

@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.core.urlresolvers import reverse
 
-from sideloader.models import Project, Build
+from sideloader.models import Project, Build, ReleaseStream
 from sideloader import forms, tasks
 
 import hashlib
@@ -50,6 +50,54 @@ def accounts_profile(request):
 
     return render(request, "accounts_profile.html", {
         'form': form
+    })
+
+@login_required
+def release_index(request):
+    releases = ReleaseStream.objects.all()
+    return render(request, "releases/index.html", {'releases': releases})
+
+@login_required
+def release_create(request):
+    if not request.user.is_superuser:
+        return redirect('home')
+
+    if request.method == "POST":
+        form = forms.ReleaseForm(request.POST)
+        if form.is_valid():
+            release = form.save(commit=False)
+            release.save()
+
+            return redirect('release_index')
+
+    else:
+        form = forms.ReleaseForm()
+
+    return render(request, 'releases/create_edit.html', {
+        'form': form
+    })
+
+@login_required
+def release_edit(request, id):
+    if not request.user.is_superuser:
+        return redirect('home')
+
+    release = ReleaseStream.objects.get(id=id)
+    if request.method == "POST":
+        form = forms.ReleaseForm(request.POST, instance=release)
+
+        if form.is_valid():
+            release = form.save(commit=False)
+            release.save()
+
+            return redirect('release_index')
+
+    else:
+        form = forms.ReleaseForm(instance=release)
+
+    return render(request, 'releases/create_edit.html', {
+        'form': form, 
+        'release': release
     })
 
 @login_required
@@ -125,25 +173,22 @@ def projects_edit(request, id):
         return redirect('home')
 
     project = Project.objects.get(id=id)
-    if project in request.user.project_set.all():
-        if request.method == "POST":
-            form = forms.ProjectForm(request.POST, instance=project)
+    if request.method == "POST":
+        form = forms.ProjectForm(request.POST, instance=project)
 
-            if form.is_valid():
-                project = form.save(commit=False)
-                project.save()
-                form.save_m2m()
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.save()
+            form.save_m2m()
 
-                return redirect('projects_index')
+            return redirect('projects_index')
 
-        else:
-            form = forms.ProjectForm(instance=project)
-        d = {
-            'form': form, 
-            'project': project
-        }
     else:
-        d = {}
+        form = forms.ProjectForm(instance=project)
+    d = {
+        'form': form, 
+        'project': project
+    }
 
     return render(request, 'projects/create_edit.html', d)
 
@@ -156,6 +201,7 @@ def projects_build(request, id):
             build = Build.objects.create(project=project, state=0)
             task = tasks.build.delay(build, project.github_url, project.branch)
             build.save()
+            return redirect('home')
 
     return redirect('projects_index')
 

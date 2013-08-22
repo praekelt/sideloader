@@ -17,6 +17,11 @@ urlpatterns = patterns('',
 
     url(r'^projects/build/view/(?P<id>[\w-]+)$', 'sideloader.views.build_view', name='build_view'),
 
+    # Releases
+    url(r'^releases/edit/(?P<id>[\w-]+)$', 'sideloader.views.release_edit', name='edit_release'),
+    url(r'^releases/create$', 'sideloader.views.release_create', name='create_release'),
+    url(r'^releases/$', 'sideloader.views.release_index', name='release_index'),
+
     # API
     url(r'^api/build/(?P<hash>[\w-]+)$', 'sideloader.views.api_build', name='api_build'),
 
