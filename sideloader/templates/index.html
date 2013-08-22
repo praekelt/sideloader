@@ -10,9 +10,9 @@
                     <tbody>
                         {% for build in builds %}
                         <tr class="info">
-                            <td>{{ build.build_time }}</td>
-                            <td width="70%">{{ build.project.name }}</td>
-                            <td>
+                            <td width="180em">{{ build.build_time }}</td>
+                            <td>{{ build.project.name }}</td>
+                            <td width="10em">
                             {% if build.project.id %}
                                 <div class="btn-group">
                                     <a class="btn" href="{% url 'build_cancel' id=build.id %}"><i class="icon-remove" title="Cancel"></i></a>
@@ -42,7 +42,7 @@
                         {% if build.state == 0 %}<tr class="info">{%endif%}
                         {% if build.state == 1 %}<tr class="success">{%endif%}
                         {% if build.state == 2 %}<tr class="error">{%endif%}
-                            <td>{{ build.build_time }}</td>
+                            <td width="180em">{{ build.build_time }}</td>
                             <td width="50%">{{ build.project.name }}</td>
                             <td>
                                 {% if build.state == 0 %}In Progress{%endif%}
@@ -50,7 +50,7 @@
                                 {% if build.state == 2 %}Failed{%endif%}
                                 {% if build.state == 3 %}Cancelled{%endif%}
                             </td>
-                            <td>
+                            <td width="10em">
                                 <div class="btn-group">
                                     <a class="btn" href="{% url 'build_view' id=build.id %}"><i class="icon-list" title="View log"></i></a>
                                 </div>
