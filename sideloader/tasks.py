@@ -11,7 +11,12 @@ def build(build, giturl, branch):
 
     print "Executing build %s %s" % (giturl, branch)
 
-    builder = subprocess.Popen([buildpack, giturl, branch], 
+    args = [buildpack, giturl, branch]
+
+    if build.project.deploy_file:
+        args.append(build.project.deploy_file)
+
+    builder = subprocess.Popen(args, 
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=local)
     builder.wait()
 

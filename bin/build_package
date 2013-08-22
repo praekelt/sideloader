@@ -18,16 +18,21 @@ class Sideloader:
 
         # Handle args better, but confparse is a pain in the ass
         try:
-            self.githuburl=sys.argv[1]
+            self.githuburl = sys.argv[1]
         except:
             print "Usage: build_package github_url [branch]"
             sys.exit(1)
 
         try:
-            self.branch=sys.argv[2]
+            self.branch = sys.argv[2]
         except:
-            self.branch=self.sideloader_config.get('default_branch', 'develop')
+            self.branch = self.sideloader_config.get('default_branch', 'develop')
 
+        try:
+            self.deploy_file = sys.argv[3]
+        except:
+            self.deploy_file = '.deploy.yaml'
+            
 
         # Rip the github url apart
         chunks = self.githuburl.split(':')[1].split('/')
