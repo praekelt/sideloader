@@ -11,7 +11,7 @@ import time
 import random
 import urlparse
 
-from celery.result import AsyncResult
+from celery.task.control import revoke
 
 @login_required
 def index(request):
@@ -193,6 +193,16 @@ def projects_edit(request, id):
     return render(request, 'projects/create_edit.html', d)
 
 @login_required
+def build_cancel(request, id):
+    build = Build.objects.get(id=id)
+    if build.project in request.user.project_set.all():
+        build.state = 3 
+        build.save()
+        revoke(build.task_id, terminate=True)
+
+    return redirect('home')
+
+@login_required
 def projects_build(request, id):
     project = Project.objects.get(id=id)
     if project and (project in request.user.project_set.all()):
@@ -200,6 +210,7 @@ def projects_build(request, id):
         if not current_builds:
             build = Build.objects.create(project=project, state=0)
             task = tasks.build.delay(build, project.github_url, project.branch)
+            build.task_id = task.task_id
             build.save()
             return redirect('home')
 

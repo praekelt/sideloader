@@ -26,7 +26,9 @@ class Build(models.Model):
     project = models.ForeignKey(Project)
     build_time = models.DateTimeField(auto_now_add=True)
 
-    # 0 - queued, 1 - Success, 2 - Failed
+    # 0 - queued, 1 - Success, 2 - Failed, 3 - Canceled
     state = models.IntegerField(default=0)
+
+    task_id = models.CharField(max_length=255, default='')
 
     log = models.TextField(default="")
