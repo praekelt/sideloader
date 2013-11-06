@@ -254,7 +254,7 @@ class Sideloader:
 
         self.log("Uploading package")
         os.system(
-            self.drop_command % "*.deb"
+            self.push_command % "*.deb"
         )
 
         # Save the cache at this point, because the packaging was successful
