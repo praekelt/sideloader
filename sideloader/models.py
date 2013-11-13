@@ -13,8 +13,8 @@ class ReleaseStream(models.Model):
         return self.__unicode__().encode('utf-8', 'replace')
 
 class Project(models.Model):
-    name = models.CharField(max_length=255)
-    github_url = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255, unique=True)
+    github_url = models.CharField(max_length=255)
     branch = models.CharField(max_length=255)
     deploy_file = models.CharField(max_length=255, default='.deploy.yaml')
     created_by_user = models.ForeignKey(User, related_name="ProjectCreatedBy")
