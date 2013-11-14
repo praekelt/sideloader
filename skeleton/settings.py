@@ -214,7 +214,7 @@ SOUTH_TESTS_MIGRATE = False  # Do not run the migrations for our tests.
                              # migrated.
 
 LOGIN_REDIRECT_URL = '/'
-SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/accounts/profile/'
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
 
 try:
     from local_settings import *
