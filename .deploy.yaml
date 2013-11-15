@@ -9,3 +9,4 @@ dependencies:
  - libpq-dev
  - postgresql
  - redis-server
+ - python-yaml
