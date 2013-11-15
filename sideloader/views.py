@@ -15,11 +15,11 @@ from celery.task.control import revoke
 
 @login_required
 def index(request):
+    projects = request.user.project_set.all()
     if request.user.is_superuser:
         builds = Build.objects.filter(state=0).order_by('-build_time')
         last_builds = Build.objects.filter(state__gt=0).order_by('-build_time')[:10]
     else:
-        projects = request.user.project_set.all()
         all_builds = Build.objects.filter(state=0).order_by('-build_time')
         last_builds = Build.objects.filter(state__gt=0, project__in=projects).order_by('-build_time')[:10]
 
@@ -31,8 +31,9 @@ def index(request):
                 builds.append({'build_time': build.build_time, 'project': {'name': 'Private'}})
 
     return render(request, "index.html", {
-        'builds': builds, 
-        'last_builds': last_builds
+        'builds': builds,
+        'last_builds': last_builds,
+        'projects': projects
     })
 
 @login_required
@@ -191,6 +192,11 @@ def projects_edit(request, id):
     }
 
     return render(request, 'projects/create_edit.html', d)
+
+@login_required
+def help_index(request):
+    return render(request, 'help/index.html')
+
 
 @login_required
 def build_cancel(request, id):

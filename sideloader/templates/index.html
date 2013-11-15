@@ -1,5 +1,13 @@
 {% include "fragments/head.html" with nav_active="home" %}
 
+    {% if not projects %}
+    <div class="hero-unit">
+          <h1>Welcome!</h1>
+          <p>Welcome to Sideloader. You are currently not yet assigned to any projects.</p>
+          <p><a class="btn btn-primary btn-large" href="{% url 'help_index' %}">Getting started</a></p>
+    </div>
+    {% endif %}
+
     <div class="row-fluid">
         <div class="span9">
             <h4>Build queue</h4>

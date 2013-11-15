@@ -23,6 +23,9 @@ urlpatterns = patterns('',
     url(r'^releases/create$', 'sideloader.views.release_create', name='create_release'),
     url(r'^releases/$', 'sideloader.views.release_index', name='release_index'),
 
+    # Help
+    url(r'^help/$', 'sideloader.views.help_index', name='help_index'),
+
     # API
     url(r'^api/build/(?P<hash>[\w-]+)$', 'sideloader.views.api_build', name='api_build'),
 
