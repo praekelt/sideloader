@@ -111,10 +111,15 @@ class Sideloader:
 
     def createWorkspace(self):
         if os.path.exists(self.workspace):
-            # Clean up workspace, except VE 
-            shutil.rmtree(os.path.join(self.workspace, self.repo))
-            shutil.rmtree(self.build)
-            shutil.rmtree(os.path.join(self.workspace,'package'))
+            # Clean up workspace, except VE
+            repo = os.path.join(self.workspace, self.repo)
+            if os.path.exists(repo):
+                shutil.rmtree(repo)
+            if os.path.exists(self.build):
+                shutil.rmtree(self.build)
+            package = os.path.join(self.workspace,'package')
+            if os.path.exists(package):
+                shutil.rmtree(package)
         else:
             os.makedirs(self.workspace)
 
