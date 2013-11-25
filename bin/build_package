@@ -55,7 +55,7 @@ class Sideloader:
 
         self.env = {
             'VENV': self.build_venv, 
-            'PIP': 'PIP_DOWNLOAD_CACHE=~/.pip_cache %s' % self.pip,
+            'PIP': self.pip,
             'WORKSPACE': self.workspace, 
             'BUILDDIR': self.build, 
             'PIP_DOWNLOAD_CACHE': '~/.pip_cache',
