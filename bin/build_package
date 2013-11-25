@@ -136,8 +136,6 @@ class Sideloader:
 
         self.log("Creating virtualenv")
         # Create clean virtualenv
-        if os.path.exists(self.build_venv):
-            shutil.rmtree(self.build_venv)
         os.system('virtualenv --no-site-packages %s' % self.build_venv)
 
         self.deploy_yam = yaml.load(
