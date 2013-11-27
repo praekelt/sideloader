@@ -75,8 +75,6 @@ class Sideloader:
         else:
             self.build_cache = {}
 
-        print self.build_cache
-
     def parseArgs(self):
         parser = argparse.ArgumentParser(description='Build a github repo')
         parser.add_argument("repo", help="Git repo", type=str)
