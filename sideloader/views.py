@@ -105,9 +105,9 @@ def release_edit(request, id):
 @login_required
 def projects_index(request):
     if request.user.is_superuser:
-        projects = Project.objects.all()
+        projects = Project.objects.all().order_by('name')
     else:
-        projects = request.user.project_set.all()
+        projects = request.user.project_set.all().order_by('name')
     
     d = {'projects': projects}
     return render(request, "projects/projects.html", d)
