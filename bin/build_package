@@ -223,7 +223,9 @@ class Sideloader:
             for ln in mypost:
                 postscript.write(ln)
 
-        postscript.write('\ndeactivate\n')
+        if self.deploy_type == 'virtualenv':
+            postscript.write('\ndeactivate\n')
+
         postscript.close()
 
         os.chmod(postinstall, 0777)
