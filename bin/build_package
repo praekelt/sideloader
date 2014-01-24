@@ -8,7 +8,6 @@ import json
 import time
 import argparse
 
-
 class Sideloader:
     def __init__(self):
         self.sideloader_config = yaml.load(
@@ -132,19 +131,22 @@ class Sideloader:
         os.chdir(os.path.join(self.workspace, self.repo))
         os.system('git checkout %s' % self.branch)
 
-        self.log("Creating virtualenv")
-        # Create clean virtualenv
-        os.system('virtualenv --no-site-packages %s' % self.build_venv)
-
         self.deploy_yam = yaml.load(
             open(os.path.join(self.workspace, self.repo, self.deploy_file))
         )
 
-        self.log("Installing pip dependencies")
-        # Install things
-        for dep in self.deploy_yam.get('pip', []):
-            print "Installing", dep
-            os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install %s' % (self.pip, dep))
+        self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
+        
+        if self.deploy_type == 'virtualenv':
+            self.log("Creating virtualenv")
+            # Create clean virtualenv
+            os.system('virtualenv --no-site-packages %s' % self.build_venv)
+
+            self.log("Installing pip dependencies")
+            # Install things
+            for dep in self.deploy_yam.get('pip', []):
+                print "Installing", dep
+                os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install %s' % (self.pip, dep))
 
         os.chdir(self.workspace)
 
@@ -181,33 +183,38 @@ class Sideloader:
             shutil.copy(os.path.join(self.build, conf), supervisor)
 
         self.log("Constructing postinstall script")
-        # Construct a post-install that also creates our virtualenv
-        os.system('%s freeze > %s/%s-requirements.pip' % (self.pip, dest, self.repo))
 
         postinstall = os.path.join(self.workspace, 'postinstall.sh')
         postscript = open(postinstall, 'wt')
         postscript.write("#!/bin/bash\n")
-        postscript.write(
-            "/usr/bin/virtualenv --no-site-packages %s\n" % self.install_venv)
 
-        # Upgrade pip so we can use the package cache
-        postscript.write("mkdir ~/.pip_cache\n")
+        # Construct a post-install that also creates our virtualenv
+        if self.deploy_type == 'virtualenv':
+            # Freeze post build requirements
+            os.system('%s freeze > %s/%s-requirements.pip' % (self.pip, dest, self.repo))
 
-        # Help out our post-install scripts and activate the virtualenv
-        postscript.write("INSTALLDIR=%s\n" % self.install_location)
-        postscript.write("VENV=%s\n" % self.install_venv)
-        postscript.write(
-            'PIP="PIP_DOWNLOAD_CACHE=~/.pip_cache %s"\n' % self.install_pip)
-        postscript.write('source $VENV/bin/activate\n')
+            postscript.write(
+                "/usr/bin/virtualenv --no-site-packages %s\n" % self.install_venv)
 
-        # re-install pip requirements
-        postscript.write(
-            "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install -r %s\n" % (
-                self.install_pip,
-                os.path.join(self.install_location,
-                    '%s-requirements.pip' % self.repo)
+            # Upgrade pip so we can use the package cache
+            postscript.write("mkdir ~/.pip_cache\n")
+
+            # Help out our post-install scripts and activate the virtualenv
+            postscript.write("VENV=%s\n" % self.install_venv)
+            postscript.write(
+                'PIP="PIP_DOWNLOAD_CACHE=~/.pip_cache %s"\n' % self.install_pip)
+            postscript.write('source $VENV/bin/activate\n')
+
+            # re-install pip requirements
+            postscript.write(
+                "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install -r %s\n" % (
+                    self.install_pip,
+                    os.path.join(self.install_location,
+                        '%s-requirements.pip' % self.repo)
+                )
             )
-        )
+
+        postscript.write("INSTALLDIR=%s\n" % self.install_location)
 
         # Merge the custom postinstall
         if self.deploy_yam.get('postinstall'):
@@ -232,8 +239,14 @@ class Sideloader:
 
         # Build a dependency list
         depends = ""
-        deplist = self.deploy_yam.get('dependencies',
-            ['nginx', 'supervisor', 'python-virtualenv'])
+
+        if self.deploy_type == 'virtualenv':
+            depdefaults = ['nginx', 'supervisor', 'python-virtualenv']
+        else:
+            depdefaults = []
+
+        deplist = self.deploy_yam.get('dependencies', depdefaults)
+
         for dep in deplist:
             depends += ' -d "%s"' % dep
 
@@ -241,6 +254,7 @@ class Sideloader:
             user = '--deb-user %s ' % self.deploy_yam['user']
         else:
             user = ''
+
         self.log("Building .deb package")
         os.system(
             'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
