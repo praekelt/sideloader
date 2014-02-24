@@ -1,3 +1,4 @@
+name: sideloader
 buildscript: scripts/deploy_sideloader
 postinstall: scripts/postinstall.sh
 pip:
