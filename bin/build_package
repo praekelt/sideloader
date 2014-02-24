@@ -258,7 +258,7 @@ class Sideloader:
             user = ''
 
         if self.deploy_yam.get('name'):
-            name = '-n ' + self.deploy_yam.get('name'):
+            name = '-n ' + self.deploy_yam.get('name')
         else:
             name = ''
 
