@@ -257,16 +257,12 @@ class Sideloader:
         else:
             user = ''
 
-        if self.deploy_yam.get('name'):
-            name = '-n ' + self.deploy_yam.get('name')
-        else:
-            name = ''
+        name = self.deploy_yam.get('name', self.repo)
 
         self.log("Building .deb package")
         os.system(
-            'fpm %s -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
+            'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
                 name,
-                self.repo,
                 version,
                 postinstall,
                 depends,
