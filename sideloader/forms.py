@@ -9,9 +9,21 @@ class ReleaseForm(BootstrapModelForm):
         model = models.ReleaseStream
 
 class ProjectForm(BootstrapModelForm):
+    github_url = forms.CharField(label="Git checkout URL")
     class Meta:
         model = models.Project
         exclude = ('idhash', 'created_by_user',)
+
+    def clean(self):
+        cleaned_data = super(ProjectForm, self).clean()
+
+        uri = cleaned_data['github_url'].strip()
+        if not (uri[-4:] == '.git'):
+            raise forms.ValidationError("Not a valid Git URI")
+
+        cleaned_data['github_url'] = uri
+
+        return cleaned_data
 
 class UserForm(BootstrapModelForm):
     password = forms.CharField(widget=forms.PasswordInput(), initial='')
