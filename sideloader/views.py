@@ -1,3 +1,10 @@
+import hashlib
+import uuid
+import time
+import random
+import urlparse
+import json
+
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
@@ -5,12 +12,6 @@ from django.core.urlresolvers import reverse
 
 from sideloader.models import Project, Build, ReleaseStream
 from sideloader import forms, tasks
-
-import hashlib
-import uuid
-import time
-import random
-import urlparse
 
 from celery.task.control import revoke
 
@@ -230,6 +231,13 @@ def projects_build(request, id):
 def api_build(request, hash):
     project = Project.objects.get(idhash=hash)
     if project:
+        if request.method == 'POST':
+            r = json.loads(request.POST.get('payload', '{}'))
+            ref = r.get('ref', '')
+            branch = ref.split('/',2)[-1]
+            if branch != project.branch:
+                return redirect('projects_index')
+
         current_builds = Build.objects.filter(project=project, state=0)
         if not current_builds:
             build = Build.objects.create(project=project, state=0)
