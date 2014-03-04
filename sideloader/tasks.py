@@ -22,15 +22,14 @@ def build(build, giturl, branch):
 
     args.append(giturl)
 
-    builder = subprocess.Popen(args, 
+    builder = subprocess.Popen(args,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=local)
-    builder.wait()
-
-    build.log = builder.stdout.read()
+    stdoutdata, stderrdata = builder.communicate()
+    build.log = stdoutdata
 
     if builder.returncode != 0:
         build.state = 2
     else:
         build.state = 1
-    
+
     build.save()
