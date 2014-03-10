@@ -140,7 +140,7 @@ class Sideloader:
         if self.deploy_type == 'virtualenv':
             self.log("Creating virtualenv")
             # Create clean virtualenv
-            os.system('virtualenv --no-site-packages %s' % self.build_venv)
+            os.system('virtualenv --setuptools --no-site-packages %s' % self.build_venv)
 
             self.log("Installing pip dependencies")
             # Install things
@@ -194,7 +194,7 @@ class Sideloader:
             os.system('%s freeze > %s/%s-requirements.pip' % (self.pip, dest, self.repo))
 
             postscript.write(
-                "/usr/bin/virtualenv --no-site-packages %s\n" % self.install_venv)
+                "/usr/bin/virtualenv --setuptools --no-site-packages %s\n" % self.install_venv)
 
             # Upgrade pip so we can use the package cache
             postscript.write("mkdir ~/.pip_cache\n")
