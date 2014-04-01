@@ -53,10 +53,10 @@ class Sideloader:
         self.install_python = os.path.join(self.install_venv, 'bin/python')
 
         self.env = {
-            'VENV': self.build_venv, 
+            'VENV': self.build_venv,
             'PIP': self.pip,
-            'WORKSPACE': self.workspace, 
-            'BUILDDIR': self.build, 
+            'WORKSPACE': self.workspace,
+            'BUILDDIR': self.build,
             'PIP_DOWNLOAD_CACHE': '~/.pip_cache',
             'INSTALLDIR': self.install_location,
             'PATH': os.path.join(
@@ -136,7 +136,7 @@ class Sideloader:
         )
 
         self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
-        
+
         if self.deploy_type == 'virtualenv':
             self.log("Creating virtualenv")
             # Create clean virtualenv
@@ -230,6 +230,15 @@ class Sideloader:
 
         os.chmod(postinstall, 0777)
 
+        preinstall = os.path.join(self.workspace, 'preinstall.sh')
+        if os.path.isfile(preinstall):
+            os.chmod(preinstall, 0777)
+            preinst_partial = '--before-install %s' % preinstall
+            for ln in open(preinstall):
+                self.log(" --- %s" % (ln.strip('\n')))
+        else:
+            preinst_partial = ''
+
         for ln in open(postinstall):
             self.log(" --- %s" % (ln.strip('\n')))
 
@@ -261,9 +270,10 @@ class Sideloader:
 
         self.log("Building .deb package")
         os.system(
-            'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
+            'fpm -s dir -t deb -a amd64 -n %s -v %s %s --after-install %s --prefix / %s %s *' % (
                 name,
                 version,
+                preinst_partial,
                 postinstall,
                 depends,
                 user
