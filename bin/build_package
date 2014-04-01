@@ -230,7 +230,11 @@ class Sideloader:
 
         os.chmod(postinstall, 0777)
 
-        preinstall = os.path.join(self.workspace, 'preinstall.sh')
+        if self.deploy_yam.get('preinstall'):
+            mypre = open(os.path.join(self.workspace, self.repo,
+                self.deploy_yam.get('preinstall')))
+        else:
+            preinstall = os.path.join(self.workspace, 'preinstall.sh')
         if os.path.isfile(preinstall):
             os.chmod(preinstall, 0777)
             preinst_partial = '--before-install %s' % preinstall

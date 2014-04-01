@@ -9,6 +9,7 @@ Create a .deploy.yaml file in your repository along the lines of ::
 
     buildscript: buildsomething.sh
     postinstall: syncdb.sh
+    preinstall: preinstall.sh
     nginx:
      - mysite/mysite-nginx.conf
     supervisor:
