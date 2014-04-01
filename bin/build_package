@@ -146,7 +146,7 @@ class Sideloader:
             # Install things
             for dep in self.deploy_yam.get('pip', []):
                 print "Installing", dep
-                os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install %s' % (self.pip, dep))
+                os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade %s' % (self.pip, dep))
 
         os.chdir(self.workspace)
 
@@ -207,7 +207,7 @@ class Sideloader:
 
             # re-install pip requirements
             postscript.write(
-                "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install -r %s\n" % (
+                "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade -r %s\n" % (
                     self.install_pip,
                     os.path.join(self.install_location,
                         '%s-requirements.pip' % self.repo)
