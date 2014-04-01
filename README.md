@@ -8,8 +8,8 @@ Look at this repo to see how it deploys itself (meta!)
 Create a .deploy.yaml file in your repository along the lines of ::
 
     buildscript: buildsomething.sh
-    postinstall: syncdb.sh
     preinstall: preinstall.sh
+    postinstall: syncdb.sh
     nginx:
      - mysite/mysite-nginx.conf
     supervisor:
