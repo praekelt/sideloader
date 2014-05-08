@@ -291,13 +291,15 @@ class Sideloader:
         self.log("Project config: " + repr(self.deploy_yam))
         self.log("Lauching build script")
 
-        os.system(
-            os.path.join(
+        buildscript = os.path.join(
                 self.workspace,
                 self.repo,
                 self.deploy_yam['buildscript']
             )
-        )
+
+        os.system('chmod a+x %s' % buildscript)
+        os.system(buildscript)
+
         self.createPackage()
 
 sideloader = Sideloader()
