@@ -142,6 +142,9 @@ class Sideloader:
             # Create clean virtualenv
             os.system('virtualenv --setuptools --no-site-packages %s' % self.build_venv)
 
+            self.log("Upgrading pip")
+            os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade pip' % self.pip)
+
             self.log("Installing pip dependencies")
             # Install things
             for dep in self.deploy_yam.get('pip', []):
@@ -194,7 +197,8 @@ class Sideloader:
             os.system('%s freeze > %s/%s-requirements.pip' % (self.pip, dest, self.repo))
 
             postscript.write(
-                "/usr/bin/virtualenv --setuptools --no-site-packages %s\n" % self.install_venv)
+                "/usr/bin/virtualenv --setuptools"
+                " --no-site-packages %s\n" % self.install_venv)
 
             # Upgrade pip so we can use the package cache
             postscript.write("mkdir ~/.pip_cache\n")
@@ -203,8 +207,15 @@ class Sideloader:
             postscript.write("VENV=%s\n" % self.install_venv)
             postscript.write(
                 'PIP="PIP_DOWNLOAD_CACHE=~/.pip_cache %s"\n' % self.install_pip)
+
+            # Activate VE
             postscript.write('source $VENV/bin/activate\n')
 
+            # Upgrade PIP
+            postscript.write(
+                "PIP_DOWNLOAD_CACHE=~/.pip_cache"
+                " %s install --upgrade pip\n" % self.install_pip
+            )
             # re-install pip requirements
             postscript.write(
                 "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade -r %s\n" % (
