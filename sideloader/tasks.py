@@ -30,7 +30,7 @@ def build(build, giturl, branch):
         build.log += line
         build.save()
 
-    p.communicate()
+    builder.communicate()
 
     if builder.returncode != 0:
         build.state = 2
