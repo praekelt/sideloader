@@ -24,15 +24,13 @@ def build(build, giturl, branch):
 
     builder = subprocess.Popen(args,
                                stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT, cwd=local)
+                               stderr=subprocess.STDOUT, cwd=local, bufsize=1)
 
-    while builder.poll() is None:
-        output = builder.stdout.readline()
-        build.log += output
+    for line in iter(builder.stdout.readline, b''):
+        build.log += line
         build.save()
 
-    stdoutdata, stderrdata = builder.communicate()
-    build.log += stdoutdata
+    p.communicate()
 
     if builder.returncode != 0:
         build.state = 2
