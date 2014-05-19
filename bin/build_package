@@ -227,6 +227,7 @@ class Sideloader:
             )
 
         postscript.write("INSTALLDIR=%s\n" % self.install_location)
+        postscript.write("REPO=%s\n" % self.repo)
 
         # Merge the custom postinstall
         if self.deploy_yam.get('postinstall'):
