@@ -3,12 +3,12 @@ import os
 import sys
 import subprocess
 
+
 @task()
 def build(build, giturl, branch):
     # Use subprocess to execute a build, update the db with results
     local = os.path.dirname(sys.argv[0])
     buildpack = os.path.join(local, 'bin/build_package')
-    deployfile = build.project.deploy_file
 
     print "Executing build %s %s" % (giturl, branch)
 
@@ -23,9 +23,14 @@ def build(build, giturl, branch):
     args.append(giturl)
 
     builder = subprocess.Popen(args,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=local)
-    stdoutdata, stderrdata = builder.communicate()
-    build.log = stdoutdata
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, cwd=local, bufsize=1)
+
+    for line in iter(builder.stdout.readline, b''):
+        build.log += line
+        build.save()
+
+    builder.communicate()
 
     if builder.returncode != 0:
         build.state = 2
