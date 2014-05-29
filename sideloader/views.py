@@ -233,7 +233,10 @@ def api_build(request, hash):
     project = Project.objects.get(idhash=hash)
     if project:
         if request.method == 'POST':
-            r = json.loads(request.POST.get('payload', '{}'))
+            if request.POST.get('payload'):
+                r = json.loads(request.POST['payload'])
+            else:
+                r = json.loads(request.body)
             ref = r.get('ref', '')
             branch = ref.split('/',2)[-1]
             if branch != project.branch:
