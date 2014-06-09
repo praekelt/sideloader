@@ -9,6 +9,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
+from django.http import HttpResponse
 
 from sideloader.models import Project, Build, ReleaseStream
 from sideloader import forms, tasks
@@ -232,17 +233,23 @@ def api_build(request, hash):
     project = Project.objects.get(idhash=hash)
     if project:
         if request.method == 'POST':
-            r = json.loads(request.POST.get('payload', '{}'))
+            if request.POST.get('payload'):
+                r = json.loads(request.POST['payload'])
+            else:
+                r = json.loads(request.body)
             ref = r.get('ref', '')
             branch = ref.split('/',2)[-1]
             if branch != project.branch:
-                return redirect('projects_index')
+                return HttpResponse("{'result': 'Request ignored'}", mimetype='application/json')
 
         current_builds = Build.objects.filter(project=project, state=0)
         if not current_builds:
             build = Build.objects.create(project=project, state=0)
             task = tasks.build.delay(build, project.github_url, project.branch)
             build.save()
+
+            return HttpResponse("{'result': 'Building'}", mimetype='application/json')
+        return HttpResponse("{'result': 'Already building'}", mimetype='application/json')
 
     return redirect('projects_index')
 

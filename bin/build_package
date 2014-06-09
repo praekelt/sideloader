@@ -53,10 +53,11 @@ class Sideloader:
         self.install_python = os.path.join(self.install_venv, 'bin/python')
 
         self.env = {
-            'VENV': self.build_venv,
+            'VENV': self.build_venv, 
             'PIP': self.pip,
-            'WORKSPACE': self.workspace,
-            'BUILDDIR': self.build,
+            'REPO': self.repo,
+            'WORKSPACE': self.workspace, 
+            'BUILDDIR': self.build, 
             'PIP_DOWNLOAD_CACHE': '~/.pip_cache',
             'INSTALLDIR': self.install_location,
             'PATH': os.path.join(
@@ -136,17 +137,20 @@ class Sideloader:
         )
 
         self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
-
+        
         if self.deploy_type == 'virtualenv':
             self.log("Creating virtualenv")
             # Create clean virtualenv
             os.system('virtualenv --setuptools --no-site-packages %s' % self.build_venv)
 
+            self.log("Upgrading pip")
+            os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade pip' % self.pip)
+
             self.log("Installing pip dependencies")
             # Install things
             for dep in self.deploy_yam.get('pip', []):
                 print "Installing", dep
-                os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install %s' % (self.pip, dep))
+                os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade %s' % (self.pip, dep))
 
         os.chdir(self.workspace)
 
@@ -194,7 +198,8 @@ class Sideloader:
             os.system('%s freeze > %s/%s-requirements.pip' % (self.pip, dest, self.repo))
 
             postscript.write(
-                "/usr/bin/virtualenv --setuptools --no-site-packages %s\n" % self.install_venv)
+                "/usr/bin/virtualenv --setuptools"
+                " --no-site-packages %s\n" % self.install_venv)
 
             # Upgrade pip so we can use the package cache
             postscript.write("mkdir ~/.pip_cache\n")
@@ -203,11 +208,18 @@ class Sideloader:
             postscript.write("VENV=%s\n" % self.install_venv)
             postscript.write(
                 'PIP="PIP_DOWNLOAD_CACHE=~/.pip_cache %s"\n' % self.install_pip)
+
+            # Activate VE
             postscript.write('source $VENV/bin/activate\n')
 
+            # Upgrade PIP
+            postscript.write(
+                "PIP_DOWNLOAD_CACHE=~/.pip_cache"
+                " %s install --upgrade pip\n" % self.install_pip
+            )
             # re-install pip requirements
             postscript.write(
-                "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install -r %s\n" % (
+                "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade -r %s\n" % (
                     self.install_pip,
                     os.path.join(self.install_location,
                         '%s-requirements.pip' % self.repo)
@@ -215,6 +227,7 @@ class Sideloader:
             )
 
         postscript.write("INSTALLDIR=%s\n" % self.install_location)
+        postscript.write("REPO=%s\n" % self.repo)
 
         # Merge the custom postinstall
         if self.deploy_yam.get('postinstall'):
@@ -229,19 +242,6 @@ class Sideloader:
         postscript.close()
 
         os.chmod(postinstall, 0777)
-
-        if self.deploy_yam.get('preinstall'):
-            mypre = open(os.path.join(self.workspace, self.repo,
-                self.deploy_yam.get('preinstall')))
-        else:
-            preinstall = os.path.join(self.workspace, 'preinstall.sh')
-        if os.path.isfile(preinstall):
-            os.chmod(preinstall, 0777)
-            preinst_partial = '--before-install %s' % preinstall
-            for ln in open(preinstall):
-                self.log(" --- %s" % (ln.strip('\n')))
-        else:
-            preinst_partial = ''
 
         for ln in open(postinstall):
             self.log(" --- %s" % (ln.strip('\n')))
@@ -274,10 +274,9 @@ class Sideloader:
 
         self.log("Building .deb package")
         os.system(
-            'fpm -s dir -t deb -a amd64 -n %s -v %s %s --after-install %s --prefix / %s %s *' % (
+            'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
                 name,
                 version,
-                preinst_partial,
                 postinstall,
                 depends,
                 user
@@ -305,13 +304,15 @@ class Sideloader:
         self.log("Project config: " + repr(self.deploy_yam))
         self.log("Launching build script")
 
-        os.system(
-            os.path.join(
+        buildscript = os.path.join(
                 self.workspace,
                 self.repo,
                 self.deploy_yam['buildscript']
             )
-        )
+
+        os.system('chmod a+x %s' % buildscript)
+        os.system(buildscript)
+
         self.createPackage()
 
 sideloader = Sideloader()
