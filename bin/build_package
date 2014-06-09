@@ -303,7 +303,7 @@ class Sideloader:
         self.createWorkspace()
 
         self.log("Project config: " + repr(self.deploy_yam))
-        self.log("Lauching build script")
+        self.log("Launching build script")
 
         os.system(
             os.path.join(
