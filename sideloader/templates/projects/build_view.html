@@ -1,5 +1,15 @@
 {% include "fragments/head.html" with nav_active="projects" %}
 
+    {% if build %}
+    <div class="row-fluid">
+        <div class="span9">
+            <h4>Project details</h4>
+            <p>
+                <strong>Name:</strong> <a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a>
+            </p>
+        </div>
+    </div>
+    {% endif %}
     <div class="row-fluid">
         <div class="span9">
             <p>
