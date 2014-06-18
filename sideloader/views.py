@@ -129,7 +129,7 @@ def build_view(request, id):
 @login_required
 def projects_view(request, id):
     project = Project.objects.get(id=id)
-    if project in request.user.project_set.all():
+    if (request.user.is_superuser) or (project in request.user.project_set.all()):
         builds = Build.objects.filter(project=project).order_by('-build_time')
 
         hook_uri = urlparse.urljoin(request.build_absolute_uri(), 
@@ -144,6 +144,15 @@ def projects_view(request, id):
         d = {}
 
     return render(request, 'projects/view.html', d)
+
+@login_required
+def projects_delete(request, id):
+    if not request.user.is_superuser:
+        return redirect('projects_index')
+
+    Project.objects.get(id=id).delete()
+
+    return redirect('projects_index')
 
 @login_required
 def projects_create(request):
@@ -162,7 +171,7 @@ def projects_create(request):
             project.save()
             form.save_m2m()
 
-            return redirect('projects_index')
+            return redirect('projects_view', id=project.id)
 
     else:
         form = forms.ProjectForm()
@@ -185,7 +194,7 @@ def projects_edit(request, id):
             project.save()
             form.save_m2m()
 
-            return redirect('projects_index')
+            return redirect('projects_view', id=id)
 
     else:
         form = forms.ProjectForm(instance=project)
