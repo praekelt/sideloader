@@ -20,6 +20,11 @@ class ReleaseForm(BaseModelForm):
 
 class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")
+    allowed_users = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all().order_by('username'),
+        required=False,
+        widget=forms.widgets.CheckboxSelectMultiple
+    )
     class Meta:
         model = models.Project
         exclude = ('idhash', 'created_by_user',)
