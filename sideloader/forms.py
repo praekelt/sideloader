@@ -1,14 +1,24 @@
 from django.contrib.auth.models import User
 from django import forms
-from bootstrap.forms import BootstrapModelForm, BootstrapForm
+from crispy_forms.helper import FormHelper
+from crispy_forms.layout import Submit
 import models
 
+class BaseModelForm(forms.ModelForm):
+    helper = FormHelper()
+    helper.form_class = 'form-horizontal'
+    helper.add_input(Submit('submit', 'Submit'))
 
-class ReleaseForm(BootstrapModelForm):
+class BaseForm(forms.Form):
+    helper = FormHelper()
+    helper.form_class = 'form-horizontal'
+    helper.add_input(Submit('submit', 'Submit'))
+
+class ReleaseForm(BaseModelForm):
     class Meta:
         model = models.ReleaseStream
 
-class ProjectForm(BootstrapModelForm):
+class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")
     class Meta:
         model = models.Project
@@ -25,7 +35,7 @@ class ProjectForm(BootstrapModelForm):
 
         return cleaned_data
 
-class UserForm(BootstrapModelForm):
+class UserForm(BaseModelForm):
     password = forms.CharField(widget=forms.PasswordInput(), initial='')
     class Meta:
         model = User

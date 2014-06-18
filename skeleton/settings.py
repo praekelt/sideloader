@@ -145,8 +145,8 @@ INSTALLED_APPS = (
     'djcelery',
     'djcelery_email',
     'social_auth',
-    'debug_toolbar',
-    'bootstrap',
+    'tastypie',
+    'crispy_forms',
     'sideloader',
 )
 
@@ -198,12 +198,6 @@ EMAIL_BACKEND = 'djcelery_email.backends.CeleryEmailBackend'
 if DEBUG:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-# Django debug toolbar
-DEBUG_TOOLBAR_CONFIG = {
-    'INTERCEPT_REDIRECTS': False,
-    'ENABLE_STACKTRACES': True,
-}
-
 # South configuration variables
 TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
 SKIP_SOUTH_TESTS = True     # Do not run the south tests as part of our
@@ -215,6 +209,8 @@ SOUTH_TESTS_MIGRATE = False  # Do not run the migrations for our tests.
 
 LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
+
+CRISPY_TEMPLATE_PACK = 'bootstrap'
 
 try:
     from local_settings import *

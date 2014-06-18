@@ -4,6 +4,10 @@ from django.conf.urls import patterns, include, url
 from django.contrib import admin
 admin.autodiscover()
 
+#from sideloader import api
+
+#sideloader_api = api.APIResource()
+
 urlpatterns = patterns('',
     # Index
     url(r'^$', 'sideloader.views.index', name='home'),
@@ -28,6 +32,7 @@ urlpatterns = patterns('',
 
     # API
     url(r'^api/build/(?P<hash>[\w-]+)$', 'sideloader.views.api_build', name='api_build'),
+    #url(r'^api/', include(sideloader_api.urls)),
 
     # Authentication
     url(r'^accounts/login/$', 'django.contrib.auth.views.login', {'template_name': 'login.html'}),
