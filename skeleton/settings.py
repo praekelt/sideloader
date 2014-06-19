@@ -1,6 +1,6 @@
 # Django settings for skeleton project.
 
-import os, datetime
+import os, datetime, socket
 import djcelery
 
 
@@ -217,6 +217,9 @@ LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
 
 CRISPY_TEMPLATE_PACK = 'bootstrap'
+
+SIDELOADER_DOMAIN = socket.getfqdn()
+SIDELOADER_FROM = 'Sideloader <no-reply@%s>' % SIDELOADER_DOMAIN
 
 try:
     from local_settings import *

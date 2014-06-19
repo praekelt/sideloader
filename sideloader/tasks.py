@@ -10,6 +10,7 @@ from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 from email.MIMEImage import MIMEImage
 
+from django.conf import settings
 from celery import task
 from sideloader import models
 
@@ -24,14 +25,14 @@ def sendEmail(to, name, release, h):
     cont += "If you would like to do so please click the link below,"
     cont += " if you do not agree then simply ignore this mail.<br/><br/>"
 
-    cont += "http://sideloader.praekelt.com/api/rap/%s" % h
+    cont += "http://%s/api/rap/%s" % (settings.SIDELOADER_DOMAIN, h)
 
     cont = MIMEText(start+cont+end, 'html')
 
     msg = MIMEMultipart('related')
 
     msg['Subject'] = '%s release approval - action required' % name
-    msg['From'] = 'Sideloader <devops@praekelt.com>'
+    msg['From'] = settings.SIDELOADER_FROM
     msg['To'] = to
     msg.attach(cont)
 
