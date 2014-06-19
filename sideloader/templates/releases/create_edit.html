@@ -1,18 +1,10 @@
+{% load crispy_forms_tags %}
 {% include "fragments/head.html" with nav_active="releases" %}
 
     <div class="row-fluid">
         <div class="span9">
             <h4 style="margin-bottom:10px">{% if project %}Edit Release{% else %}Create Release{% endif %}</h4>
-            <form method="POST" class="form-horizontal">
-                {% csrf_token %}
-                {{form}}
-                <div class="control-group form-actions">
-                    <div class="controls">
-                        <input type="submit" class="btn btn-success" value="{% if release %}Update{% else %}Save{% endif %}">
-                    </div>
-                </div>
-            </form>
-
+            {% crispy form %}
         </div>
     </div>
 

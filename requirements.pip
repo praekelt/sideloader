@@ -1,4 +1,4 @@
-Django==1.5
+Django
 South
 gunicorn
 python-memcached
@@ -17,4 +17,4 @@ pep8
 pyflakes
 fabric
 pyyaml
--e git+git://github.com/earle/django-bootstrap.git#egg=bootstrap
+django-crispy-forms

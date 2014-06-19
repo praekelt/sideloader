@@ -1,6 +1,6 @@
 # Django settings for skeleton project.
 
-import os
+import os, datetime, socket
 import djcelery
 
 
@@ -145,8 +145,7 @@ INSTALLED_APPS = (
     'djcelery',
     'djcelery_email',
     'social_auth',
-    'debug_toolbar',
-    'bootstrap',
+    'crispy_forms',
     'sideloader',
 )
 
@@ -192,17 +191,18 @@ CELERY_IMPORTS = (
     'sideloader.tasks',
 )
 
+CELERYBEAT_SCHEDULE = {
+    'update-servers': {
+        'task': 'sideloader.tasks.checkReleases',
+        'schedule': datetime.timedelta(seconds=60)
+    }
+}
+
 # Defer email sending to Celery, except if we're in debug mode,
 # then just print the emails to stdout for debugging.
 EMAIL_BACKEND = 'djcelery_email.backends.CeleryEmailBackend'
 if DEBUG:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-# Django debug toolbar
-DEBUG_TOOLBAR_CONFIG = {
-    'INTERCEPT_REDIRECTS': False,
-    'ENABLE_STACKTRACES': True,
-}
 
 # South configuration variables
 TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
@@ -215,6 +215,11 @@ SOUTH_TESTS_MIGRATE = False  # Do not run the migrations for our tests.
 
 LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
+
+CRISPY_TEMPLATE_PACK = 'bootstrap'
+
+SIDELOADER_DOMAIN = socket.getfqdn()
+SIDELOADER_FROM = 'Sideloader <no-reply@%s>' % SIDELOADER_DOMAIN
 
 try:
     from local_settings import *

@@ -15,6 +15,7 @@
                             <td>
                                 <div class="btn-group">
                                     <a class="btn" href="{% url 'projects_edit' id=project.id %}" title="Edit settings"><i class="icon-edit"></i></a>
+                                    <a class="btn" href="{% url 'projects_delete' id=project.id %}" title="Delete"><i class="icon-trash"></i></a>
                                     <a class="btn" href="{% url 'projects_build' id=project.id %}" title="Build!"><i class="icon-play"></i></a>
                                 </div>
                             </td>
