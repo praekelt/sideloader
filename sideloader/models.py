@@ -101,7 +101,6 @@ class Release(models.Model):
             return True
 
         t = int(time.mktime(self.scheduled.timetuple()))
-        print time.time(), t
         if (time.time() - t) > 0:
             return True
         return False
@@ -122,7 +121,6 @@ class Release(models.Model):
 
     def get_state(self):
         c, s = self.release_state()
-        print c,repr(s)
 
         messages = {
             1: lambda t: "Deployed",

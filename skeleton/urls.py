@@ -23,6 +23,7 @@ urlpatterns = patterns('',
     # Workflows
     url(r'^workflow/edit/(?P<id>[\w-]+)$', 'sideloader.views.workflow_edit', name='workflow_edit'),
     url(r'^workflow/delete/(?P<id>[\w-]+)$', 'sideloader.views.workflow_delete', name='workflow_delete'),
+    url(r'^workflow/suck/(?P<id>[\w-]+)$', 'sideloader.views.release_delete', name='release_delete'),
     url(r'^workflow/create/(?P<project>[\w-]+)$', 'sideloader.views.workflow_create', name='workflow_create'),
     url(r'^workflow/push/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_push', name='workflow_push'),
     url(r'^workflow/schedule/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_schedule', name='workflow_schedule'),

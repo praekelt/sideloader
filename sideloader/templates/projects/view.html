@@ -26,14 +26,18 @@
             {% if project.releaseflow_set.all %}
                 <table class="table table-hover table-bordered table-condensed">
                     <tbody>
+                        <thead><tr><th>Name</th><th>Current Release</th><th></th></tr></thead>
                         {% for workflow in project.releaseflow_set.all %}
                         <tr>
                             <td width="100%">{{ workflow.name }}</td>
+                            <td>{{ workflow.last_release.build.build_file }}</td>
                             <td>
+                                {% if user.is_superuser %}
                                 <div class="btn-group">
                                     <a class="btn" href="{% url 'workflow_edit' id=workflow.id %}" title="Edit"><i class="icon-edit"></i></a>
-                                    <a class="btn" href="{% url 'workflow_delete' id=workflow.id %}" title="Edit"><i class="icon-remove"></i></a>
+                                    <a class="btn" href="{% url 'workflow_delete' id=workflow.id %}" title="Delete"><i class="icon-remove"></i></a>
                                 </div>
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
@@ -54,7 +58,7 @@
             <h4>Releases</h4>
             <p>
                 <table class="table table-hover table-bordered table-condensed">
-                    <thead><tr><th>Request date</th><th>Workflow</th><th>Build</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Request date</th><th>Workflow</th><th>Build</th><th>Status</th><th></th></tr></thead>
                     <tbody>
                         {% for release in releases %}
                         <tr>
@@ -62,6 +66,11 @@
                             <td >{{ release.flow.name }}</td>
                             <td >{{ release.build.build_file }}</td>
                             <td >{{ release.get_state }}</td>
+                            <td>
+                                <div class="btn-group">
+                                    <a class="btn" href="{% url 'release_delete' id=release.id %}" title="Delete"><i class="icon-remove"></i></a>
+                                </div>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>

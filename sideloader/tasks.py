@@ -66,8 +66,6 @@ def doRelease(build, flow, scheduled=None):
             so.save()
             sendEmail.delay(email, build.project.name, flow.name, so.idhash)
 
-        print repr(users)
-
 @task()
 def runRelease(release):
     if release.waiting:
@@ -76,20 +74,16 @@ def runRelease(release):
         last_release = flow.last_release()
         if next_release:
             if release.release_date < next_release.release_date:
-                print "Stale %s" % repr(release)
-                # Stale
-                release.waiting = False
-                release.save()
+                #print "Stale %s" % repr(release)
+                release.delete()
 
         if last_release:
             if release.release_date < last_release.release_date:
-                # Stale
-                print "Stale %s" % repr(release)
-                release.waiting = False
-                release.save()
+                #print "Stale %s" % repr(release)
+                release.delete()
 
         if release.check_schedule() and release.check_signoff():
-            print "Released %s" % repr(release)
+            #print "Released %s" % repr(release)
             release.waiting = False
             release.save()
             push_cmd = release.flow.stream.push_command
@@ -116,7 +110,7 @@ def build(build, giturl, branch):
     package = os.path.join(workspace, 'package')
     packages = '/workspace/packages'
 
-    print "Executing build %s %s" % (giturl, branch)
+    #print "Executing build %s %s" % (giturl, branch)
 
     args = [buildpack, '--branch', branch]
 

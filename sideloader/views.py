@@ -109,6 +109,9 @@ def release_edit(request, id):
 def workflow_create(request, project):
     p = Project.objects.get(id=project)
 
+    if not request.user.is_superuser:
+        return redirect('projects_view', id=p.id)
+
     if request.method == "POST":
         form = forms.FlowForm(request.POST)
         if form.is_valid():
@@ -128,6 +131,10 @@ def workflow_create(request, project):
 @login_required
 def workflow_edit(request, id):
     workflow = ReleaseFlow.objects.get(id=id)
+
+    if not request.user.is_superuser:
+        return redirect('projects_view', id=workflow.project.id)
+
     if request.method == "POST":
         form = forms.FlowForm(request.POST, instance=workflow)
 
@@ -144,6 +151,14 @@ def workflow_edit(request, id):
         'form': form, 
         'workflow': workflow
     })
+
+@login_required
+def release_delete(request, id):
+    release = Release.objects.get(id=id)
+    project_id = release.flow.project.id
+    release.delete()
+
+    return redirect('projects_view', id=project_id)
 
 @login_required
 def workflow_delete(request, id):
