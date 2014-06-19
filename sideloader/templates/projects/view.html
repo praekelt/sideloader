@@ -26,11 +26,12 @@
             {% if project.releaseflow_set.all %}
                 <table class="table table-hover table-bordered table-condensed">
                     <tbody>
-                        <thead><tr><th>Name</th><th>Current Release</th><th></th></tr></thead>
+                        <thead><tr><th>Name</th><th>Current Release</th><th>Auto</th><th></th></tr></thead>
                         {% for workflow in project.releaseflow_set.all %}
                         <tr>
-                            <td width="100%">{{ workflow.name }}</td>
+                            <td>{{ workflow.name }}</td>
                             <td>{{ workflow.last_release.build.build_file }}</td>
+                            <td>{% if workflow.auto_release %}<i class="icon-ok"></i>{% endif %}</td>
                             <td>
                                 {% if user.is_superuser %}
                                 <div class="btn-group">
