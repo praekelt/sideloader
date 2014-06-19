@@ -10,16 +10,34 @@
         </div>
     </div>
     {% endif %}
+
     <div class="row-fluid">
         <div class="span9">
             <p>
                 {% if build %}
-                <pre>{{build.log}}</pre>
+                <pre id="log" class="logview"></pre>
                 {% else %}
                 Not authorized
                 {% endif %}
             </p>
         </div>
     </div>
+<script>
+    $(function () {
+        function updateBuildLog(){
+            $.getJSON("{% url 'build_output' id=build.id %}", function( data ) {
+                var log = $("#log");
+                
+                log.text(data.log);
+                log.scrollTop(log[0].scrollHeight);
 
+                if (parseInt(data.state) < 1) {
+                    setTimeout(updateBuildLog, 500);
+                }
+            });
+        }
+
+        updateBuildLog();
+    });
+</script>
 {% include "fragments/foot.html" %}

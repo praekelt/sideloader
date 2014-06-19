@@ -41,6 +41,7 @@ class Sideloader:
         # It's all about the paths
         self.workspace = os.path.join('/workspace', self.repo)
         self.build = os.path.join(self.workspace, 'build')
+        self.packages = '/workspace/packages'
 
         # Paths for build time
         self.build_venv = os.path.join(self.workspace, 've')
@@ -288,11 +289,6 @@ class Sideloader:
         key = self.sideloader_config.get('gpg_key')
         if key:
             os.system('dpkg-sig -k %s --sign builder *.deb' % key)
-
-        self.log("Uploading package")
-        os.system(
-            self.push_command % "*.deb"
-        )
 
         # Save the cache at this point, because the packaging was successful
         self.saveCache()

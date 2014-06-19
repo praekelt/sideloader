@@ -1,6 +1,6 @@
 # Django settings for skeleton project.
 
-import os
+import os, datetime
 import djcelery
 
 
@@ -145,7 +145,6 @@ INSTALLED_APPS = (
     'djcelery',
     'djcelery_email',
     'social_auth',
-    'tastypie',
     'crispy_forms',
     'sideloader',
 )
@@ -191,6 +190,13 @@ CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
 CELERY_IMPORTS = (
     'sideloader.tasks',
 )
+
+CELERYBEAT_SCHEDULE = {
+    'update-servers': {
+        'task': 'sideloader.tasks.checkReleases',
+        'schedule': datetime.timedelta(seconds=60)
+    }
+}
 
 # Defer email sending to Celery, except if we're in debug mode,
 # then just print the emails to stdout for debugging.

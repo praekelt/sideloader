@@ -46,3 +46,8 @@ body {
 .usermast {
     padding-top:1em;
 }
+
+.logview {
+    height: 300px;
+    overflow: scroll;
+}

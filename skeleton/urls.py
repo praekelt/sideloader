@@ -17,7 +17,15 @@ urlpatterns = patterns('',
     url(r'^projects/delete/(?P<id>[\w-]+)$', 'sideloader.views.projects_delete', name='projects_delete'),
 
     url(r'^projects/build/view/(?P<id>[\w-]+)$', 'sideloader.views.build_view', name='build_view'),
+    url(r'^projects/build/log/(?P<id>[\w-]+)$', 'sideloader.views.build_output', name='build_output'),
     url(r'^projects/build/cancel/(?P<id>[\w-]+)$', 'sideloader.views.build_cancel', name='build_cancel'),
+
+    # Workflows
+    url(r'^workflow/edit/(?P<id>[\w-]+)$', 'sideloader.views.workflow_edit', name='workflow_edit'),
+    url(r'^workflow/delete/(?P<id>[\w-]+)$', 'sideloader.views.workflow_delete', name='workflow_delete'),
+    url(r'^workflow/create/(?P<project>[\w-]+)$', 'sideloader.views.workflow_create', name='workflow_create'),
+    url(r'^workflow/push/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_push', name='workflow_push'),
+    url(r'^workflow/schedule/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_schedule', name='workflow_schedule'),
 
     # Releases
     url(r'^releases/edit/(?P<id>[\w-]+)$', 'sideloader.views.release_edit', name='edit_release'),
@@ -29,6 +37,7 @@ urlpatterns = patterns('',
 
     # API
     url(r'^api/build/(?P<hash>[\w-]+)$', 'sideloader.views.api_build', name='api_build'),
+    url(r'^api/rap/(?P<hash>[\w-]+)$', 'sideloader.views.api_sign', name='api_sign'),
 
     # Authentication
     url(r'^accounts/login/$', 'django.contrib.auth.views.login', {'template_name': 'login.html'}),

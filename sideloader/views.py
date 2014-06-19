@@ -1,3 +1,4 @@
+from datetime import timedelta
 import hashlib
 import uuid
 import time
@@ -11,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 
-from sideloader.models import Project, Build, ReleaseStream
+from sideloader.models import Project, Build, ReleaseStream, ReleaseFlow, ReleaseSignoff, Release
 from sideloader import forms, tasks
 
 from celery.task.control import revoke
@@ -105,6 +106,88 @@ def release_edit(request, id):
     })
 
 @login_required
+def workflow_create(request, project):
+    p = Project.objects.get(id=project)
+
+    if request.method == "POST":
+        form = forms.FlowForm(request.POST)
+        if form.is_valid():
+            flow = form.save(commit=False)
+
+            flow.project = p 
+            flow.save()
+
+            return redirect('projects_view', id=project)
+    else:
+        form = forms.FlowForm()
+
+    return render(request, 'flows/create_edit.html', {
+        'form': form
+    })
+
+@login_required
+def workflow_edit(request, id):
+    workflow = ReleaseFlow.objects.get(id=id)
+    if request.method == "POST":
+        form = forms.FlowForm(request.POST, instance=workflow)
+
+        if form.is_valid():
+            workflow = form.save(commit=False)
+            workflow.save()
+
+            return redirect('projects_view', id=workflow.project.id)
+
+    else:
+        form = forms.FlowForm(instance=workflow)
+
+    return render(request, 'flows/create_edit.html', {
+        'form': form, 
+        'workflow': workflow
+    })
+
+@login_required
+def workflow_delete(request, id):
+    flow = ReleaseFlow.objects.get(id=id)
+    project_id = flow.project.id
+    flow.delete()
+
+    return redirect('projects_view', id=project_id)
+
+@login_required
+def workflow_push(request, flow, build):
+    flow = ReleaseFlow.objects.get(id=flow)
+    build = Build.objects.get(id=build)
+
+    tasks.doRelease.delay(build, flow)
+
+    project_id = flow.project.id
+    return redirect('projects_view', id=project_id)
+
+@login_required
+def workflow_schedule(request, flow, build):
+    flow = ReleaseFlow.objects.get(id=flow)
+    build = Build.objects.get(id=build)
+
+    if request.method == "POST":
+        form = forms.ReleasePushForm(request.POST)
+        if form.is_valid():
+            release = form.cleaned_data
+
+            schedule = release['scheduled'] + timedelta(hours=int(release['tz']))
+
+            tasks.doRelease.delay(build, flow, scheduled=schedule)
+
+            return redirect('projects_view', id=flow.project.id)
+    else:
+        form = forms.ReleasePushForm()
+
+    return render(request, 'flows/schedule.html', {
+        'form': form,
+        'flow': flow,
+        'build': build
+    })
+
+@login_required
 def projects_index(request):
     if request.user.is_superuser:
         projects = Project.objects.all().order_by('name')
@@ -135,10 +218,21 @@ def projects_view(request, id):
         hook_uri = urlparse.urljoin(request.build_absolute_uri(), 
             reverse('api_build', kwargs={'hash':project.idhash}))
 
+        flows = ReleaseFlow.objects.filter(project=project)
+        releases = []
+        for flow in flows:
+            release_set = flow.release_set.all().order_by('-release_date')
+
+            for release in release_set:
+                releases.append(release)
+
+        releases.sort(key=lambda r: r.release_date)
+
         d = {
             'project': project, 
             'hook_uri': hook_uri,
-            'builds': builds
+            'builds': builds,
+            'releases': reversed(releases[-5:])
         }
     else:
         d = {}
@@ -170,6 +264,30 @@ def projects_create(request):
 
             project.save()
             form.save_m2m()
+
+            prdStream = ReleaseStream.objects.filter(name__icontains='prod')
+            qaStream = ReleaseStream.objects.filter(name__icontains='qa')
+
+            if prdStream:
+                # Create some default workflows
+                prd = ReleaseFlow.objects.create(name="Production",
+                    project=project,
+                    stream=prdStream[0],
+                    require_signoff=False,
+                    quorum=0,
+                    auto_release=False
+                )
+                prd.save()
+
+            if qaStream:
+                qa = ReleaseFlow.objects.create(name="QA",
+                    project=project,
+                    stream=qaStream[0],
+                    require_signoff=False,
+                    quorum=0,
+                    auto_release=True
+                )
+                qa.save()
 
             return redirect('projects_view', id=project.id)
 
@@ -209,7 +327,6 @@ def projects_edit(request, id):
 def help_index(request):
     return render(request, 'help/index.html')
 
-
 @login_required
 def build_cancel(request, id):
     build = Build.objects.get(id=id)
@@ -225,14 +342,28 @@ def projects_build(request, id):
     project = Project.objects.get(id=id)
     if project and (project in request.user.project_set.all()):
         current_builds = Build.objects.filter(project=project, state=0)
-        if not current_builds:
+        if current_builds:
+            return redirect('build_view', id=current_builds[0].id)
+        else:
             build = Build.objects.create(project=project, state=0)
             task = tasks.build.delay(build, project.github_url, project.branch)
             build.task_id = task.task_id
             build.save()
-            return redirect('home')
+            return redirect('build_view', id=build.id)
 
     return redirect('projects_index')
+
+@login_required
+def build_output(request, id):
+    build = Build.objects.get(id=id)
+
+    if (request.user.is_superuser) or (
+        build.project in request.user.project_set.all()):
+        d = {'state': build.state, 'log': build.log}
+    else:
+        d = {}
+
+    return HttpResponse(json.dumps(d), mimetype='application/json')
 
 #############
 # API methods
@@ -255,10 +386,26 @@ def api_build(request, hash):
         if not current_builds:
             build = Build.objects.create(project=project, state=0)
             task = tasks.build.delay(build, project.github_url, project.branch)
+            build.task_id = task.task_id
             build.save()
 
             return HttpResponse("{'result': 'Building'}", mimetype='application/json')
         return HttpResponse("{'result': 'Already building'}", mimetype='application/json')
 
     return redirect('projects_index')
+
+@csrf_exempt
+def api_sign(request, hash):
+    signoff = ReleaseSignoff.objects.get(idhash=hash)
+    signoff.signed = True
+    signoff.save()
+
+    if signoff.release.waiting:
+        if signoff.release.check_signoff():
+            tasks.runRelease.delay(signoff.release)
+
+    return render(request, "sign.html", {
+        'signoff': signoff
+    })
+
 

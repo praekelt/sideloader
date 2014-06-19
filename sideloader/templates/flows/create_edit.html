@@ -1,0 +1,33 @@
+{% load crispy_forms_tags %}
+{% include "fragments/head.html" with nav_active="projects" %}
+
+    <div class="row-fluid">
+        <div class="span9">
+            <h4 style="margin-bottom:10px">{% if project %}Edit Project{% else %}Create Project{% endif %}</h4>
+            {% crispy form %}
+        </div>
+    </div>
+
+<script>
+    $(function () {
+        var signoff=true;
+
+        function toggleSignoff(){
+            var signoff = !$("#id_require_signoff")[0].checked;
+            if (signoff) {
+                $("#div_id_signoff_list").hide();
+                $("#div_id_quorum").hide();
+            }
+            else {
+                $("#div_id_signoff_list").show();
+                $("#div_id_quorum").show();
+            }
+        }
+
+        $("#id_require_signoff").click(function() {
+            toggleSignoff();
+        });
+        toggleSignoff();
+    });
+</script>
+{% include "fragments/foot.html" %}

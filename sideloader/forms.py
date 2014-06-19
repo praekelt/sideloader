@@ -18,6 +18,37 @@ class ReleaseForm(BaseModelForm):
     class Meta:
         model = models.ReleaseStream
 
+class ReleasePushForm(BaseModelForm):
+    tz = forms.CharField(widget=forms.HiddenInput())
+
+    class Meta:
+        model = models.Release
+        exclude = ('release_date', 'flow', 'build', 'waiting')
+
+class FlowForm(BaseModelForm):
+    require_signoff = forms.BooleanField(
+        label="Require sign-off",
+        required=False)
+
+    signoff_list = forms.CharField(
+        widget=forms.Textarea,
+        label="Sign-off list",
+        required=False,
+        help_text="List email addresses on a new line")
+
+    auto_release = forms.BooleanField(
+        help_text="Automatically deploy builds to this release stream", 
+        required=False)
+
+    quorum = forms.IntegerField(
+        required=False,
+        initial=0,
+        help_text="Required number of sign-offs before release. 0 means <strong>all</strong> are required")
+
+    class Meta:
+        exclude = ('project',)
+        model = models.ReleaseFlow
+
 class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")
     allowed_users = forms.ModelMultipleChoiceField(
@@ -27,7 +58,7 @@ class ProjectForm(BaseModelForm):
     )
     class Meta:
         model = models.Project
-        exclude = ('idhash', 'created_by_user',)
+        exclude = ('idhash', 'created_by_user', 'release_stream')
 
     def clean(self):
         cleaned_data = super(ProjectForm, self).clean()

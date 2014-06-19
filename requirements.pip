@@ -18,4 +18,3 @@ pyflakes
 fabric
 pyyaml
 django-crispy-forms
-django-tastypie

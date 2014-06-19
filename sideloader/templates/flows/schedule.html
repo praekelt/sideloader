@@ -1,0 +1,49 @@
+{% load crispy_forms_tags %}
+{% include "fragments/head.html" with nav_active="projects" %}
+
+<div class="row-fluid">
+    <div class="span9">
+        <h4 style="margin-bottom:10px">Push build `{{build.build_file}}` to {{flow.name}}</h4>
+        <br/>
+        <br/>
+
+        <form class="form-horizontal" method="post" >
+            {% csrf_token %}
+            <input type='hidden' name='tz' id='tz' value='' />
+
+            <div id="div_id_scheduled" class="control-group">
+                <label for="id_scheduled" class="control-label">
+                Schedule release</label>
+                <div class="controls">
+                    <div class="well">
+                      <div id="datetimepicker1" class="input-append date">
+                        <input type="text" id="id_scheduled" name="scheduled"></input>
+                        <span class="add-on">
+                          <i data-time-icon="icon-time" data-date-icon="icon-calendar"></i>
+                        </span>
+                      </div>
+                    </div>
+                </div>
+            </div>
+                
+            <div class="form-actions">
+                <input type="submit" name="submit" value="Submit" class="btn btn-primary" id="submit-id-submit"/>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script type="text/javascript">
+  $(function() {
+    $('#datetimepicker1').datetimepicker({format: 'MM/dd/yyyy hh:mm'});
+
+    var d = new Date()
+    var n = d.getTimezoneOffset()/60;
+
+    $('#tz').val(parseInt(n));
+
+  });
+</script>
+
+<script type="text/javascript" src="/static/js/bootstrap-datetimepicker.min.js"></script> 
+{% include "fragments/foot.html" %}
