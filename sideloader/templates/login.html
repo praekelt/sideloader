@@ -25,5 +25,9 @@
         <a href="{% url 'socialauth_begin' backend='github' %}" class="btn">
             <img src="/static/images/GitHub-Mark-32px.png"/> Login with GitHub
         </a>
+        <a href="{% url 'socialauth_begin' backend='google-oauth2' %}" class="btn">
+            <img src="/static/images/google.jpg"/> Login with Google
+        </a>
+
     </div>
 {% include "fragments/foot.html" %}
