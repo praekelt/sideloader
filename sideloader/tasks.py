@@ -15,23 +15,15 @@ from celery import task
 from sideloader import models
 
 @task()
-def sendEmail(to, name, release, h):
-
+def sendEmail(to, content, subject):
     start = '<html><head></head><body style="font-family:arial,sans-serif;">'
     end = '</body></html>'
 
-    cont = 'A build release has been requested for "%s" to release stream "%s".<br/><br/>' % (name, release)
-    cont += "You are listed as a contact to approve this release. "
-    cont += "If you would like to do so please click the link below,"
-    cont += " if you do not agree then simply ignore this mail.<br/><br/>"
-
-    cont += "http://%s/api/rap/%s" % (settings.SIDELOADER_DOMAIN, h)
-
-    cont = MIMEText(start+cont+end, 'html')
+    cont = MIMEText(start+content+end, 'html')
 
     msg = MIMEMultipart('related')
 
-    msg['Subject'] = '%s release approval - action required' % name
+    msg['Subject'] = subject
     msg['From'] = settings.SIDELOADER_FROM
     msg['To'] = to
     msg.attach(cont)
@@ -40,6 +32,31 @@ def sendEmail(to, name, release, h):
     s.connect()
     s.sendmail(msg['From'], msg['To'], msg.as_string())
     s.close()
+
+@task()
+def sendSignEmail(to, name, release, h):
+    cont = 'A build release has been requested for "%s" to release stream "%s".<br/><br/>' % (name, release)
+    cont += "You are listed as a contact to approve this release. "
+    cont += "If you would like to do so please click the link below,"
+    cont += " if you do not agree then simply ignore this mail.<br/><br/>"
+
+    cont += "http://%s/api/rap/%s" % (settings.SIDELOADER_DOMAIN, h)
+
+    sendEmail(to, cont, '%s release approval - action required' % name)
+
+@task()
+def sendScheduleNotification(to, release):
+    cont = 'A %s release for %s has been scheduled for %s UTC' % (
+        release.flow.name,
+        release.flow.project.name,
+        release.scheduled
+    )
+
+    sendEmail(to, cont, '%s %s release scheduled - %s UTC' % (
+        release.flow.project.name,
+        release.flow.name,
+        release.scheduled
+    ))
 
 @task()
 def doRelease(build, flow, scheduled=None):
@@ -51,6 +68,10 @@ def doRelease(build, flow, scheduled=None):
     )
 
     release.save()
+
+    if scheduled:
+        for name, email in settings.ADMINS:
+            sendScheduleNotification.delay(email, release)
 
     if flow.require_signoff:
         # Create a signoff release
@@ -65,7 +86,7 @@ def doRelease(build, flow, scheduled=None):
                 signed=False
             )
             so.save()
-            sendEmail.delay(email, build.project.name, flow.name, so.idhash)
+            sendSignEmail.delay(email, build.project.name, flow.name, so.idhash)
 
 @task()
 def runRelease(release):
