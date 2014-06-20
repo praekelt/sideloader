@@ -217,6 +217,9 @@ LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
 
 CRISPY_TEMPLATE_PACK = 'bootstrap'
+SESSION_COOKIE_AGE = 1209600
+
+SESSION_SERIALIZER='django.contrib.sessions.serializers.PickleSerializer'
 
 SIDELOADER_DOMAIN = socket.getfqdn()
 SIDELOADER_FROM = 'Sideloader <no-reply@%s>' % SIDELOADER_DOMAIN
