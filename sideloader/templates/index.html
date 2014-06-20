@@ -59,9 +59,25 @@
                                 {% if build.state == 2 %}Failed{%endif%}
                                 {% if build.state == 3 %}Cancelled{%endif%}
                             </td>
-                            <td width="10em">
+                            <td width="80em">
                                 <div class="btn-group">
                                     <a class="btn" href="{% url 'build_view' id=build.id %}"><i class="icon-list" title="View log"></i></a>
+                                    {% if build.state == 1 %}
+                                    <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
+                                        <i class="icon-fire" title="Release"></i> <span class="caret"></span>
+                                    </a>
+                                    <ul class="dropdown-menu">
+                                        {% for workflow in build.project.releaseflow_set.all %}
+                                        <li class="dropdown-submenu">
+                                            <a tabindex="-1" href="#">{{workflow.name}}</a>
+                                            <ul class="dropdown-menu">
+                                                <li><a href="{% url 'workflow_push' flow=workflow.id build=build.id %}"><i class="icon-hand-right"></i> Push</a></li>
+                                                <li><a href="{% url 'workflow_schedule' flow=workflow.id build=build.id %}"><i class="icon-time"></i> Schedule</a></li>
+                                            </ul>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
