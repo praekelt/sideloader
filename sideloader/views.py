@@ -1,31 +1,52 @@
 from datetime import timedelta
-import hashlib
 import uuid
-import time
-import random
 import urlparse
 import json
+import hashlib, hmac, base64
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
+from django.conf import settings
 
-from sideloader.models import Project, Build, ReleaseStream, ReleaseFlow, ReleaseSignoff, Release
-from sideloader import forms, tasks
+from sideloader import forms, tasks, models
 
 from celery.task.control import revoke
+
+def verifyHMAC(request, data=None):
+    clientauth = request.META['HTTP_AUTHORIZATION']
+    sig = request.META['HTTP_SIG']
+
+    if clientauth != settings.SPECTER_AUTHCODE:
+        return False
+
+    sign = [settings.SPECTER_AUTHCODE, request.method, request.path]
+
+    if data:
+        sign.append(
+            hashlib.sha1(data).hexdigest()
+        )
+
+    mysig = hmac.new(
+        key = settings.SPECTER_SECRET,
+        msg = '\n'.join(sign),
+        digestmod = hashlib.sha1
+    ).digest()
+
+    return base64.b64encode(mysig) == sig
+ 
 
 @login_required
 def index(request):
     projects = request.user.project_set.all()
     if request.user.is_superuser:
-        builds = Build.objects.filter(state=0).order_by('-build_time')
-        last_builds = Build.objects.filter(state__gt=0).order_by('-build_time')[:10]
+        builds = models.Build.objects.filter(state=0).order_by('-build_time')
+        last_builds = models.Build.objects.filter(state__gt=0).order_by('-build_time')[:10]
     else:
-        all_builds = Build.objects.filter(state=0).order_by('-build_time')
-        last_builds = Build.objects.filter(state__gt=0, project__in=projects).order_by('-build_time')[:10]
+        all_builds = models.Build.objects.filter(state=0).order_by('-build_time')
+        last_builds = models.Build.objects.filter(state__gt=0, project__in=projects).order_by('-build_time')[:10]
 
         builds = []
         for build in all_builds:
@@ -58,8 +79,15 @@ def accounts_profile(request):
     })
 
 @login_required
+def server_index(request):
+    servers = models.Server.objects.all()
+    return render(request, "servers/index.html", {
+            'servers': servers
+        })
+
+@login_required
 def release_index(request):
-    releases = ReleaseStream.objects.all()
+    releases = models.ReleaseStream.objects.all()
     return render(request, "releases/index.html", {'releases': releases})
 
 @login_required
@@ -87,7 +115,7 @@ def release_edit(request, id):
     if not request.user.is_superuser:
         return redirect('home')
 
-    release = ReleaseStream.objects.get(id=id)
+    release = models.ReleaseStream.objects.get(id=id)
     if request.method == "POST":
         form = forms.ReleaseForm(request.POST, instance=release)
 
@@ -107,7 +135,7 @@ def release_edit(request, id):
 
 @login_required
 def workflow_create(request, project):
-    p = Project.objects.get(id=project)
+    p = models.Project.objects.get(id=project)
 
     if not request.user.is_superuser:
         return redirect('projects_view', id=p.id)
@@ -120,6 +148,15 @@ def workflow_create(request, project):
             flow.project = p 
             flow.save()
 
+            # Create target link if none exists
+            for server in form.cleaned_data['targets']:
+                print repr(server)
+                try:
+                    target = models.Target.objects.get(server=server, release=flow)
+                except models.Target.DoesNotExist:
+                    target = models.Target.objects.create(server=server, release=flow)
+                    target.save()
+
             return redirect('projects_view', id=project)
     else:
         form = forms.FlowForm()
@@ -130,7 +167,7 @@ def workflow_create(request, project):
 
 @login_required
 def workflow_edit(request, id):
-    workflow = ReleaseFlow.objects.get(id=id)
+    workflow = models.ReleaseFlow.objects.get(id=id)
 
     if not request.user.is_superuser:
         return redirect('projects_view', id=workflow.project.id)
@@ -142,10 +179,27 @@ def workflow_edit(request, id):
             workflow = form.save(commit=False)
             workflow.save()
 
+            # Create target link if none exists
+            for server in form.cleaned_data['targets']:
+                try:
+                    target = models.Target.objects.get(server=server, release=workflow)
+                except models.Target.DoesNotExist:
+                    target = models.Target.objects.create(server=server, release=workflow)
+                    target.save()
+
+            # Delete old target links
+            ids = [server.id for server in form.cleaned_data['targets']]
+            targets = workflow.target_set.all()
+            for target in targets:
+                if target.server.id not in ids:
+                    print "Deleting old target", target
+
             return redirect('projects_view', id=workflow.project.id)
 
     else:
         form = forms.FlowForm(instance=workflow)
+        form.initial['targets'] = [t.server for t in workflow.target_set.all()]
+        
 
     return render(request, 'flows/create_edit.html', {
         'form': form, 
@@ -154,7 +208,7 @@ def workflow_edit(request, id):
 
 @login_required
 def release_delete(request, id):
-    release = Release.objects.get(id=id)
+    release = models.Release.objects.get(id=id)
     project_id = release.flow.project.id
     release.delete()
 
@@ -162,7 +216,7 @@ def release_delete(request, id):
 
 @login_required
 def workflow_delete(request, id):
-    flow = ReleaseFlow.objects.get(id=id)
+    flow = models.ReleaseFlow.objects.get(id=id)
     project_id = flow.project.id
     flow.delete()
 
@@ -170,8 +224,8 @@ def workflow_delete(request, id):
 
 @login_required
 def workflow_push(request, flow, build):
-    flow = ReleaseFlow.objects.get(id=flow)
-    build = Build.objects.get(id=build)
+    flow = models.ReleaseFlow.objects.get(id=flow)
+    build = models.Build.objects.get(id=build)
 
     tasks.doRelease.delay(build, flow)
 
@@ -180,8 +234,8 @@ def workflow_push(request, flow, build):
 
 @login_required
 def workflow_schedule(request, flow, build):
-    flow = ReleaseFlow.objects.get(id=flow)
-    build = Build.objects.get(id=build)
+    flow = models.ReleaseFlow.objects.get(id=flow)
+    build = models.Build.objects.get(id=build)
 
     if request.method == "POST":
         form = forms.ReleasePushForm(request.POST)
@@ -205,7 +259,7 @@ def workflow_schedule(request, flow, build):
 @login_required
 def projects_index(request):
     if request.user.is_superuser:
-        projects = Project.objects.all().order_by('name')
+        projects = models.Project.objects.all().order_by('name')
     else:
         projects = request.user.project_set.all().order_by('name')
     
@@ -214,7 +268,7 @@ def projects_index(request):
 
 @login_required
 def build_view(request, id):
-    build = Build.objects.get(id=id)
+    build = models.Build.objects.get(id=id)
 
     if (request.user.is_superuser) or (
         build.project in request.user.project_set.all()):
@@ -226,14 +280,14 @@ def build_view(request, id):
 
 @login_required
 def projects_view(request, id):
-    project = Project.objects.get(id=id)
+    project = models.Project.objects.get(id=id)
     if (request.user.is_superuser) or (project in request.user.project_set.all()):
-        builds = Build.objects.filter(project=project).order_by('-build_time')
+        builds = models.Build.objects.filter(project=project).order_by('-build_time')
 
         hook_uri = urlparse.urljoin(request.build_absolute_uri(), 
             reverse('api_build', kwargs={'hash':project.idhash}))
 
-        flows = ReleaseFlow.objects.filter(project=project)
+        flows = models.ReleaseFlow.objects.filter(project=project)
         releases = []
         for flow in flows:
             release_set = flow.release_set.all().order_by('-release_date')
@@ -259,7 +313,7 @@ def projects_delete(request, id):
     if not request.user.is_superuser:
         return redirect('projects_index')
 
-    Project.objects.get(id=id).delete()
+    models.Project.objects.get(id=id).delete()
 
     return redirect('projects_index')
 
@@ -280,12 +334,12 @@ def projects_create(request):
             project.save()
             form.save_m2m()
 
-            prdStream = ReleaseStream.objects.filter(name__icontains='prod')
-            qaStream = ReleaseStream.objects.filter(name__icontains='qa')
+            prdStream = models.ReleaseStream.objects.filter(name__icontains='prod')
+            qaStream = models.ReleaseStream.objects.filter(name__icontains='qa')
 
             if prdStream:
                 # Create some default workflows
-                prd = ReleaseFlow.objects.create(name="Production",
+                prd = models.ReleaseFlow.objects.create(name="Production",
                     project=project,
                     stream=prdStream[0],
                     require_signoff=False,
@@ -295,7 +349,7 @@ def projects_create(request):
                 prd.save()
 
             if qaStream:
-                qa = ReleaseFlow.objects.create(name="QA",
+                qa = models.ReleaseFlow.objects.create(name="QA",
                     project=project,
                     stream=qaStream[0],
                     require_signoff=False,
@@ -318,7 +372,7 @@ def projects_edit(request, id):
     if not request.user.is_superuser:
         return redirect('home')
 
-    project = Project.objects.get(id=id)
+    project = models.Project.objects.get(id=id)
     if request.method == "POST":
         form = forms.ProjectForm(request.POST, instance=project)
 
@@ -344,7 +398,7 @@ def help_index(request):
 
 @login_required
 def build_cancel(request, id):
-    build = Build.objects.get(id=id)
+    build = models.Build.objects.get(id=id)
     if build.project in request.user.project_set.all():
         build.state = 3 
         build.save()
@@ -354,13 +408,13 @@ def build_cancel(request, id):
 
 @login_required
 def projects_build(request, id):
-    project = Project.objects.get(id=id)
+    project = models.Project.objects.get(id=id)
     if project and (project in request.user.project_set.all()):
-        current_builds = Build.objects.filter(project=project, state=0)
+        current_builds = models.Build.objects.filter(project=project, state=0)
         if current_builds:
             return redirect('build_view', id=current_builds[0].id)
         else:
-            build = Build.objects.create(project=project, state=0)
+            build = models.Build.objects.create(project=project, state=0)
             task = tasks.build.delay(build, project.github_url, project.branch)
             build.task_id = task.task_id
             build.save()
@@ -370,7 +424,7 @@ def projects_build(request, id):
 
 @login_required
 def build_output(request, id):
-    build = Build.objects.get(id=id)
+    build = models.Build.objects.get(id=id)
 
     if (request.user.is_superuser) or (
         build.project in request.user.project_set.all()):
@@ -378,14 +432,28 @@ def build_output(request, id):
     else:
         d = {}
 
-    return HttpResponse(json.dumps(d), mimetype='application/json')
+    return HttpResponse(json.dumps(d), content_type='application/json')
+
+@login_required
+def get_servers(request):
+    d = [s.name for s in models.Server.objects.all()]
+
+    return HttpResponse(json.dumps(d), content_type='application/json')
+
+@login_required
+def get_workflow_servers(request, id):
+    workflow = models.ReleaseFlow.objects.get(id=id)
+
+    d = [s.server.name for s in workflow.target_set.all()]
+
+    return HttpResponse(json.dumps(d), content_type='application/json')
 
 #############
 # API methods
 
 @csrf_exempt
 def api_build(request, hash):
-    project = Project.objects.get(idhash=hash)
+    project = models.Project.objects.get(idhash=hash)
     if project:
         if request.method == 'POST':
             if request.POST.get('payload'):
@@ -395,23 +463,26 @@ def api_build(request, hash):
             ref = r.get('ref', '')
             branch = ref.split('/',2)[-1]
             if branch != project.branch:
-                return HttpResponse("{'result': 'Request ignored'}", mimetype='application/json')
+                return HttpResponse('{"result": "Request ignored"}',
+                        content_type='application/json')
 
-        current_builds = Build.objects.filter(project=project, state=0)
+        current_builds = models.Build.objects.filter(project=project, state=0)
         if not current_builds:
-            build = Build.objects.create(project=project, state=0)
+            build = models.Build.objects.create(project=project, state=0)
             task = tasks.build.delay(build, project.github_url, project.branch)
             build.task_id = task.task_id
             build.save()
 
-            return HttpResponse("{'result': 'Building'}", mimetype='application/json')
-        return HttpResponse("{'result': 'Already building'}", mimetype='application/json')
+            return HttpResponse('{"result": "Building"}',
+                    content_type='application/json')
+        return HttpResponse('{"result": "Already building"}',
+                content_type='application/json')
 
     return redirect('projects_index')
 
 @csrf_exempt
 def api_sign(request, hash):
-    signoff = ReleaseSignoff.objects.get(idhash=hash)
+    signoff = models.ReleaseSignoff.objects.get(idhash=hash)
     signoff.signed = True
     signoff.save()
 
@@ -423,4 +494,21 @@ def api_sign(request, hash):
         'signoff': signoff
     })
 
+@csrf_exempt
+def api_checkin(request):
+    # Server checkin endpoint
+    if request.method == 'POST':
+        if verifyHMAC(request, request.body):
+            data = json.loads(request.body)
+            try:
+                server = models.Server.objects.get(name=data['hostname'])
 
+            except models.Server.DoesNotExist:
+                server = models.Server.objects.create(name=data['hostname'])
+
+            server.save()
+
+    return HttpResponse(
+            json.dumps({"error": "Not authorized"}), 
+            content_type='application/json'
+        )

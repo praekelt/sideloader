@@ -2,15 +2,24 @@
 {% include "fragments/head.html" with nav_active="projects" %}
 
     <div class="row-fluid">
-        <div class="span9">
+        <div class="span9" id="formcontainer">
             <h4 style="margin-bottom:10px">{% if workflow %}Edit workflow{% else %}Create workflow{% endif %}</h4>
             {% crispy form %}
+
         </div>
     </div>
 
+<link href="/static/css/select2.css" rel="stylesheet"/>
+<script src="/static/js/select2.min.js"></script>
 <script>
     $(function () {
-        var signoff=true;
+        $("#id_targets").select2({
+            width: "resolve",
+            placeholder: "Select servers",
+            allowClear: true
+        })
+
+        var signoff = true;
 
         function toggleSignoff(){
             var signoff = !$("#id_require_signoff")[0].checked;
@@ -24,10 +33,24 @@
             }
         }
 
-        $("#id_require_signoff").click(function() {
-            toggleSignoff();
-        });
+        function toggleMode(){
+            var mode = $('input:radio[name=stream_mode]:checked').val();
+
+            if (mode==1) {
+                $("#div_id_stream").hide();
+                $("#div_id_targets").show();
+            }
+            else {
+                $("#div_id_stream").show();
+                $("#div_id_targets").hide();
+            }
+        }
+
+        $("#id_require_signoff").click(toggleSignoff);
         toggleSignoff();
+        
+        $('input:radio[name=stream_mode]').change(toggleMode);
+        toggleMode();
     });
 </script>
 {% include "fragments/foot.html" %}

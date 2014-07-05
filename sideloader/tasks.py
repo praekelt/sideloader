@@ -8,7 +8,6 @@ import smtplib
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
-from email.MIMEImage import MIMEImage
 
 from django.conf import settings
 from celery import task

@@ -1,8 +1,15 @@
-import time, datetime
-from django.utils import timezone
+import time
 from django.db import models
 from django.contrib.auth.models import User
 
+class Server(models.Model):
+    name = models.CharField(max_length=255)
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
 
 class ReleaseStream(models.Model):
     name = models.CharField(max_length=255)
@@ -27,7 +34,9 @@ class Project(models.Model):
 class ReleaseFlow(models.Model):
     name = models.CharField(max_length=255)
     project = models.ForeignKey(Project)
-    stream = models.ForeignKey(ReleaseStream)
+
+    stream_mode = models.IntegerField(default=0)
+    stream = models.ForeignKey(ReleaseStream, null=True, blank=True)
 
     require_signoff = models.BooleanField(default=False)
     signoff_list = models.TextField(blank=True)
@@ -68,6 +77,10 @@ class Build(models.Model):
     log = models.TextField(default="")
 
     build_file = models.CharField(max_length=255)
+
+class Target(models.Model):
+    server = models.ForeignKey(Server)
+    release = models.ForeignKey(ReleaseFlow)
 
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)

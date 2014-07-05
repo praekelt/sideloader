@@ -33,12 +33,18 @@ urlpatterns = patterns('',
     url(r'^releases/create$', 'sideloader.views.release_create', name='create_release'),
     url(r'^releases/$', 'sideloader.views.release_index', name='release_index'),
 
+    # Servers
+    url(r'^servers/$', 'sideloader.views.server_index', name='server_index'),
+    url(r'^servers/json/$', 'sideloader.views.get_servers', name='get_servers'),
+    url(r'^servers/json/workflow/(?P<id>[\w-]+)$', 'sideloader.views.get_workflow_servers', name='get_workflow_servers'),
+
     # Help
     url(r'^help/$', 'sideloader.views.help_index', name='help_index'),
 
     # API
     url(r'^api/build/(?P<hash>[\w-]+)$', 'sideloader.views.api_build', name='api_build'),
     url(r'^api/rap/(?P<hash>[\w-]+)$', 'sideloader.views.api_sign', name='api_sign'),
+    url(r'^api/checkin$', 'sideloader.views.api_checkin', name='api_checkin'),
 
     # Authentication
     url(r'^accounts/login/$', 'django.contrib.auth.views.login', {'template_name': 'login.html'}),

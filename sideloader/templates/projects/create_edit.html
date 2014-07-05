@@ -8,4 +8,13 @@
         </div>
     </div>
 
+    <link href="/static/css/select2.css" rel="stylesheet"/>
+    <script src="/static/js/select2.min.js"></script>
+
+    <script>
+        $("#id_allowed_users").select2({
+            placeholder: "Select users",
+            allowClear: true
+        })
+    </script>
 {% include "fragments/foot.html" %}
