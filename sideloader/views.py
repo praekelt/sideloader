@@ -36,11 +36,17 @@ def verifyHMAC(request, data=None):
     ).digest()
 
     return base64.b64encode(mysig) == sig
- 
+
+def getProjects(request):
+    if request.user.is_superuser:
+        return models.Project.objects.all().order_by('name')
+    else:
+        return request.user.project_set.all().order_by('name')
 
 @login_required
 def index(request):
-    projects = request.user.project_set.all()
+    projects = getProjects(request)
+
     if request.user.is_superuser:
         builds = models.Build.objects.filter(state=0).order_by('-build_time')
         last_builds = models.Build.objects.filter(state__gt=0).order_by('-build_time')[:10]
@@ -63,6 +69,7 @@ def index(request):
 
 @login_required
 def accounts_profile(request):
+    projects = getProjects(request)
     if request.method == "POST":
         form = forms.UserForm(request.POST, instance=request.user)
 
@@ -75,20 +82,25 @@ def accounts_profile(request):
         form = forms.UserForm(instance=request.user)
 
     return render(request, "accounts_profile.html", {
-        'form': form
+        'form': form,
+        'projects': projects
     })
 
 @login_required
 def server_index(request):
     servers = models.Server.objects.all()
     return render(request, "servers/index.html", {
-            'servers': servers
-        })
+        'servers': servers,
+        'projects': getProjects(request)
+    })
 
 @login_required
 def release_index(request):
     releases = models.ReleaseStream.objects.all()
-    return render(request, "releases/index.html", {'releases': releases})
+    return render(request, "releases/index.html", {
+        'releases': releases,
+        'projects': getProjects(request)
+    })
 
 @login_required
 def release_create(request):
@@ -107,7 +119,8 @@ def release_create(request):
         form = forms.ReleaseForm()
 
     return render(request, 'releases/create_edit.html', {
-        'form': form
+        'form': form,
+        'projects': getProjects(request)
     })
 
 @login_required
@@ -130,7 +143,8 @@ def release_edit(request, id):
 
     return render(request, 'releases/create_edit.html', {
         'form': form, 
-        'release': release
+        'release': release,
+        'projects': getProjects(request)
     })
 
 @login_required
@@ -162,7 +176,9 @@ def workflow_create(request, project):
         form = forms.FlowForm()
 
     return render(request, 'flows/create_edit.html', {
-        'form': form
+        'form': form,
+        'project': p,
+        'projects': getProjects(request)
     })
 
 @login_required
@@ -203,7 +219,9 @@ def workflow_edit(request, id):
 
     return render(request, 'flows/create_edit.html', {
         'form': form, 
-        'workflow': workflow
+        'workflow': workflow,
+        'project': workflow.project,
+        'projects': getProjects(request)
     })
 
 @login_required
@@ -251,35 +269,31 @@ def workflow_schedule(request, flow, build):
         form = forms.ReleasePushForm()
 
     return render(request, 'flows/schedule.html', {
+        'projects': getProjects(request),
+        'project': flow.project,
         'form': form,
         'flow': flow,
         'build': build
     })
 
 @login_required
-def projects_index(request):
-    if request.user.is_superuser:
-        projects = models.Project.objects.all().order_by('name')
-    else:
-        projects = request.user.project_set.all().order_by('name')
-    
-    d = {'projects': projects}
-    return render(request, "projects/projects.html", d)
-
-@login_required
 def build_view(request, id):
     build = models.Build.objects.get(id=id)
 
+    d = {
+        'projects': getProjects(request),
+        'project': build.project
+    }
+
     if (request.user.is_superuser) or (
         build.project in request.user.project_set.all()):
-        d = {'build': build}
-    else:
-        d = {}
+        d['build'] = build
 
     return render(request, 'projects/build_view.html', d)
 
 @login_required
 def projects_view(request, id):
+
     project = models.Project.objects.get(id=id)
     if (request.user.is_superuser) or (project in request.user.project_set.all()):
         builds = models.Build.objects.filter(project=project).order_by('-build_time')
@@ -301,7 +315,8 @@ def projects_view(request, id):
             'project': project, 
             'hook_uri': hook_uri,
             'builds': builds,
-            'releases': reversed(releases[-5:])
+            'releases': reversed(releases[-5:]),
+            'projects': getProjects(request) 
         }
     else:
         d = {}
@@ -311,11 +326,11 @@ def projects_view(request, id):
 @login_required
 def projects_delete(request, id):
     if not request.user.is_superuser:
-        return redirect('projects_index')
+        return redirect('home')
 
     models.Project.objects.get(id=id).delete()
 
-    return redirect('projects_index')
+    return redirect('home')
 
 @login_required
 def projects_create(request):
@@ -364,11 +379,13 @@ def projects_create(request):
         form = forms.ProjectForm()
 
     return render(request, 'projects/create_edit.html', {
+        'projects': getProjects(request),
         'form': form
     })
 
 @login_required
 def projects_edit(request, id):
+    projects = getProjects(request)
     if not request.user.is_superuser:
         return redirect('home')
 
@@ -387,7 +404,8 @@ def projects_edit(request, id):
         form = forms.ProjectForm(instance=project)
     d = {
         'form': form, 
-        'project': project
+        'project': project,
+        'projects': projects
     }
 
     return render(request, 'projects/create_edit.html', d)
@@ -420,7 +438,7 @@ def projects_build(request, id):
             build.save()
             return redirect('build_view', id=build.id)
 
-    return redirect('projects_index')
+    return redirect('home')
 
 @login_required
 def build_output(request, id):
@@ -478,7 +496,7 @@ def api_build(request, hash):
         return HttpResponse('{"result": "Already building"}',
                 content_type='application/json')
 
-    return redirect('projects_index')
+    return redirect('home')
 
 @csrf_exempt
 def api_sign(request, hash):
