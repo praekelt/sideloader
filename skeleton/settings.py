@@ -194,7 +194,7 @@ CELERY_IMPORTS = (
 CELERYBEAT_SCHEDULE = {
     'update-servers': {
         'task': 'sideloader.tasks.checkReleases',
-        'schedule': datetime.timedelta(seconds=60)
+        'schedule': datetime.timedelta(seconds=10)
     }
 }
 
@@ -216,7 +216,7 @@ SOUTH_TESTS_MIGRATE = False  # Do not run the migrations for our tests.
 LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
 
-CRISPY_TEMPLATE_PACK = 'bootstrap'
+CRISPY_TEMPLATE_PACK = 'bootstrap3'
 SESSION_COOKIE_AGE = 1209600
 
 SESSION_SERIALIZER='django.contrib.sessions.serializers.PickleSerializer'

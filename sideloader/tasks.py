@@ -11,7 +11,7 @@ from email.MIMEMultipart import MIMEMultipart
 
 from django.conf import settings
 from celery import task
-from sideloader import models
+from sideloader import models, specter
 
 @task()
 def sendEmail(to, content, subject):
@@ -88,32 +88,89 @@ def doRelease(build, flow, scheduled=None):
             sendSignEmail.delay(email, build.project.name, flow.name, so.idhash)
 
 @task()
+def pushTargets(release, flow):
+    """
+    Pushes a release using Specter
+    """
+    targets = flow.target_set.all()
+
+    for target in targets:
+        target.deploy_state=1
+        target.save()
+
+        sc = specter.SpecterClient(target.server.name,
+                settings.SPECTER_AUTHCODE, settings.SPECTER_SECRET)
+
+        url = target.release.project.github_url
+        package = url.split(':')[1].split('/')[-1][:-4]
+        
+        url = "%s/%s" % (
+            settings.SIDELOADER_PACKAGEURL, 
+            release.build.build_file
+        )
+ 
+        result = sc.post_install({
+            'package': package,
+            'url': url
+        })
+
+        if ('error' in result) or (result.get('code',2) > 0):
+            # Errors during deployment
+            target.deploy_state=3
+            if 'error' in result:
+                target.log = result['error']
+            else:
+                target.log = result['stdout'] +'\n'+ result['stdin']
+            target.save()
+        else:
+            target.deploy_state=1
+            target.log = result['stdout'] +'\n'+ result['stdin']
+            target.current_build = release.build
+            target.save()
+
+    release.lock = False
+    release.waiting = False
+    release.save()
+
+@task()
 def runRelease(release):
+    if release.lock:
+        return
+
     if release.waiting:
         flow = release.flow
         next_release = flow.next_release()
         last_release = flow.last_release()
+
+        # Cleanup stale releases, deprecated by request date
         if next_release:
             if release.release_date < next_release.release_date:
-                #print "Stale %s" % repr(release)
                 release.delete()
 
         if last_release:
             if release.release_date < last_release.release_date:
-                #print "Stale %s" % repr(release)
                 release.delete()
 
         if release.check_schedule() and release.check_signoff():
-            #print "Released %s" % repr(release)
-            release.waiting = False
+            release.lock = True
             release.save()
-            push_cmd = release.flow.stream.push_command
-            os.system(push_cmd % os.path.join(
-                '/workspace/packages/', release.build.build_file))
+
+            # Release the build
+            if flow.stream_mode == 0:
+                # Stream release
+                push_cmd = release.flow.stream.push_command
+                os.system(push_cmd % os.path.join(
+                    '/workspace/packages/', release.build.build_file))
+
+                release.lock = False
+                release.waiting = False
+                release.save()
+            else:
+                pushTargets.delay(release, flow)
 
 @task()
 def checkReleases():
-    releases = models.Release.objects.filter(waiting=True)
+    releases = models.Release.objects.filter(waiting=True, lock=False)
     for release in releases:
         # Check releases synchronously 
         runRelease(release)
