@@ -1,14 +1,18 @@
+{% extends "fragments/default.html" %}
 {% load crispy_forms_tags %}
-{% include "fragments/head.html" with nav_active="projects" %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
+{% block head %}
+<link href="/static/css/select2.css" rel="stylesheet"/>
+<link href="/static/css/select2-bootstrap.css" rel="stylesheet"/>
+{% endblock %}
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4 style="margin-bottom:10px">{% if project %}Edit Project{% else %}Create Project{% endif %}</h4>
-            {% crispy form %}
-        </div>
-    </div>
+{% block content %}
+<div class="col-lg-9">
+    <h4 style="margin-bottom:10px">{% if project %}Edit Project{% else %}Create Project{% endif %}</h4>
+    {% crispy form %}
 
-    <link href="/static/css/select2.css" rel="stylesheet"/>
     <script src="/static/js/select2.min.js"></script>
 
     <script>
@@ -17,4 +21,5 @@
             allowClear: true
         })
     </script>
-{% include "fragments/foot.html" %}
+</div>
+{% endblock %}
