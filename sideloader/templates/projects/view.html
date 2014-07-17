@@ -10,10 +10,10 @@ Not Authorized
 {% else %}
 <div class="col-lg-9">
     <div class="row">
-        <div class="col-lg-10">
+        <div class="col-lg-9">
             <h4>{{project.name}}</h4>
         </div>
-        <div class="col-lg-2">
+        <div class="col-lg-3">
             {% if user.is_superuser %}
             <a href="{% url 'projects_edit' id=project.id %}" class="btn btn-default">Edit</a>
             <a href="{% url 'projects_delete' id=project.id %}" class="btn btn-default">Delete</a>
@@ -46,7 +46,24 @@ Not Authorized
                 <tr>
                     <td>{{ workflow.name }}</td>
                     <td>{% if workflow.auto_release %}<span class="glyphicon glyphicon-ok electric"></span>{% endif %}</td>
+                    {% if workflow.stream_mode == 0 %}
                     <td>{{ workflow.last_release.build.build_file }}</td>
+                    {% else %}
+                    <td>
+                    {% for target in workflow.target_set.all %}
+                        <strong>Server: {{target.server}} (<a href="{% url 'server_log' id=target.id %}">view log</a>)</strong><br/>
+                        State:
+                            {% if target.deploy_state == 0 %}Unknown{% endif %}
+                            {% if target.deploy_state == 1 %}Deploy in progress{% endif %}
+                            {% if target.deploy_state == 2 %}Deployed{% endif %}
+                            {% if target.deploy_state == 3 %}Problem{% endif %}
+                        <br/>
+                        Release:
+                            {% if target.current_build.build_file %}{{target.current_build.build_file}}{% else %}None{% endif %}
+                        <br/>
+                    {% endfor %}
+                    </td>
+                    {% endif %}
                     {% if user.is_superuser %}
                     <td width="80em">
                         <div class="btn-group btn-group-sm">

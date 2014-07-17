@@ -51,8 +51,8 @@ class SpecterClient(object):
         sig = self.createSignature(path, data)
 
         return {
-            'authorization': [self.auth],
-            'sig': [sig]
+            'authorization': self.auth,
+            'sig': sig
         }
 
     def getRequest(self, path, *a):

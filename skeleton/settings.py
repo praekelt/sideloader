@@ -223,6 +223,7 @@ SESSION_SERIALIZER='django.contrib.sessions.serializers.PickleSerializer'
 
 SIDELOADER_DOMAIN = socket.getfqdn()
 SIDELOADER_FROM = 'Sideloader <no-reply@%s>' % SIDELOADER_DOMAIN
+SIDELOADER_PACKAGEURL = "http://%s/packages" % SIDELOADER_DOMAIN
 
 try:
     from local_settings import *

@@ -34,6 +34,7 @@ urlpatterns = patterns('',
 
     # Servers
     url(r'^servers/$', 'sideloader.views.server_index', name='server_index'),
+    url(r'^servers/log/(?P<id>[\w-]+)$', 'sideloader.views.server_log', name='server_log'),
     url(r'^servers/json/$', 'sideloader.views.get_servers', name='get_servers'),
     url(r'^servers/json/workflow/(?P<id>[\w-]+)$', 'sideloader.views.get_workflow_servers', name='get_workflow_servers'),
 

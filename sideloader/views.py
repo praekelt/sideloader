@@ -95,6 +95,24 @@ def server_index(request):
     })
 
 @login_required
+def server_log(request, id):
+    # Accepts workflow target ID
+    target = models.Target.objects.get(id=id)
+
+    projects = getProjects(request)
+    d = {
+        'target': target,
+        'project': target.release.project,
+        'projects': projects
+    }
+
+    if (request.user.is_superuser) or (
+        target.release.project in request.user.project_set.all()):
+        d['target'] = target
+
+    return render(request, "servers/server_log.html", d)
+
+@login_required
 def release_index(request):
     releases = models.ReleaseStream.objects.all()
     return render(request, "releases/index.html", {

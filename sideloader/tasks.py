@@ -114,17 +114,18 @@ def pushTargets(release, flow):
             'url': url
         })
 
-        if ('error' in result) or (result.get('code',2) > 0):
+        if ('error' in result) or (result.get('code',2) > 0) or (
+            result.get('stderr') and not result.get('stdout')):
             # Errors during deployment
             target.deploy_state=3
             if 'error' in result:
                 target.log = result['error']
             else:
-                target.log = result['stdout'] +'\n'+ result['stdin']
+                target.log = result['stdout'] +'\n'+ result['stderr']
             target.save()
         else:
-            target.deploy_state=1
-            target.log = result['stdout'] +'\n'+ result['stdin']
+            target.deploy_state=2
+            target.log = result['stdout'] +'\n'+ result['stderr']
             target.current_build = release.build
             target.save()
 
@@ -171,6 +172,8 @@ def runRelease(release):
 @task()
 def checkReleases():
     releases = models.Release.objects.filter(waiting=True, lock=False)
+    if settings.DEBUG:
+        print "tick"
     for release in releases:
         # Check releases synchronously 
         runRelease(release)
@@ -188,7 +191,8 @@ def build(build, giturl, branch):
     package = os.path.join(workspace, 'package')
     packages = '/workspace/packages'
 
-    #print "Executing build %s %s" % (giturl, branch)
+    if settings.DEBUG:
+        print "Executing build %s %s" % (giturl, branch)
 
     args = [buildpack, '--branch', branch]
 

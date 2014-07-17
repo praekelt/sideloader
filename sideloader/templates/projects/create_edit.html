@@ -13,6 +13,10 @@
     <h4 style="margin-bottom:10px">{% if project %}Edit Project{% else %}Create Project{% endif %}</h4>
     {% crispy form %}
 
+</div>
+{% endblock %}
+
+{% block script %}
     <script src="/static/js/select2.min.js"></script>
 
     <script>
@@ -21,5 +25,4 @@
             allowClear: true
         })
     </script>
-</div>
 {% endblock %}

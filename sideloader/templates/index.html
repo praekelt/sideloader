@@ -53,8 +53,8 @@
                     {% if build.state == 0 %}<tr class="info">{%endif%}
                     {% if build.state == 1 %}<tr class="success">{%endif%}
                     {% if build.state == 2 %}<tr class="error">{%endif%}
-                        <td width="180em">{{ build.build_time }}</td>
-                        <td width="50%"><a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a></td>
+                        <td width="160em">{{ build.build_time }}</td>
+                        <td><a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a></td>
                         <td>
                             {% if build.state == 0 %}In Progress{%endif%}
                             {% if build.state == 1 %}Success{%endif%}
