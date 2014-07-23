@@ -8,11 +8,10 @@ import smtplib
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
-from email.MIMEImage import MIMEImage
 
 from django.conf import settings
 from celery import task
-from sideloader import models
+from sideloader import models, specter
 
 @task()
 def sendEmail(to, content, subject):
@@ -89,32 +88,100 @@ def doRelease(build, flow, scheduled=None):
             sendSignEmail.delay(email, build.project.name, flow.name, so.idhash)
 
 @task()
+def pushTargets(release, flow):
+    """
+    Pushes a release using Specter
+    """
+    targets = flow.target_set.all()
+
+    for target in targets:
+        target.deploy_state=1
+        target.save()
+
+        sc = specter.SpecterClient(target.server.name,
+                settings.SPECTER_AUTHCODE, settings.SPECTER_SECRET)
+
+        url = target.release.project.github_url
+        package = url.split(':')[1].split('/')[-1][:-4]
+        
+        url = "%s/%s" % (
+            settings.SIDELOADER_PACKAGEURL, 
+            release.build.build_file
+        )
+
+        stop = sc.get_all_stop()['stdout']
+
+        result = sc.post_install({
+            'package': package,
+            'url': url
+        })
+
+        if ('error' in result) or (result.get('code',2) > 0) or (
+            result.get('stderr') and not result.get('stdout')):
+            # Errors during deployment
+            target.deploy_state=3
+            if 'error' in result:
+                target.log = '\n'.join([stop, result['error']])
+            else:
+                target.log = '\n'.join([
+                    stop, result['stdout'], result['stderr']
+                ])
+            target.save()
+        else:
+            puppet = sc.get_puppet_run()['stdout']
+            start = sc.get_all_start()['stdout']
+            target.deploy_state=2
+            target.log += '\n'.join([
+                stop, result['stdout'], result['stderr'], puppet, start
+            ])
+            target.current_build = release.build
+            target.save()
+
+    release.lock = False
+    release.waiting = False
+    release.save()
+
+@task()
 def runRelease(release):
+    if release.lock:
+        return
+
     if release.waiting:
         flow = release.flow
         next_release = flow.next_release()
         last_release = flow.last_release()
+
+        # Cleanup stale releases, deprecated by request date
         if next_release:
             if release.release_date < next_release.release_date:
-                #print "Stale %s" % repr(release)
                 release.delete()
 
         if last_release:
             if release.release_date < last_release.release_date:
-                #print "Stale %s" % repr(release)
                 release.delete()
 
         if release.check_schedule() and release.check_signoff():
-            #print "Released %s" % repr(release)
-            release.waiting = False
+            release.lock = True
             release.save()
-            push_cmd = release.flow.stream.push_command
-            os.system(push_cmd % os.path.join(
-                '/workspace/packages/', release.build.build_file))
+
+            # Release the build
+            if flow.stream_mode == 0:
+                # Stream release
+                push_cmd = release.flow.stream.push_command
+                os.system(push_cmd % os.path.join(
+                    '/workspace/packages/', release.build.build_file))
+
+                release.lock = False
+                release.waiting = False
+                release.save()
+            else:
+                pushTargets.delay(release, flow)
 
 @task()
 def checkReleases():
-    releases = models.Release.objects.filter(waiting=True)
+    releases = models.Release.objects.filter(waiting=True, lock=False)
+    if settings.DEBUG:
+        print "tick"
     for release in releases:
         # Check releases synchronously 
         runRelease(release)
@@ -132,7 +199,8 @@ def build(build, giturl, branch):
     package = os.path.join(workspace, 'package')
     packages = '/workspace/packages'
 
-    #print "Executing build %s %s" % (giturl, branch)
+    if settings.DEBUG:
+        print "Executing build %s %s" % (giturl, branch)
 
     args = [buildpack, '--branch', branch]
 

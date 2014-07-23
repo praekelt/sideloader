@@ -7,11 +7,15 @@ import models
 class BaseModelForm(forms.ModelForm):
     helper = FormHelper()
     helper.form_class = 'form-horizontal'
+    helper.label_class = 'col-lg-2'
+    helper.field_class = 'col-lg-8'
     helper.add_input(Submit('submit', 'Submit'))
 
 class BaseForm(forms.Form):
     helper = FormHelper()
     helper.form_class = 'form-horizontal'
+    helper.label_class = 'col-lg-2'
+    helper.field_class = 'col-lg-8'
     helper.add_input(Submit('submit', 'Submit'))
 
 class ReleaseForm(BaseModelForm):
@@ -26,6 +30,13 @@ class ReleasePushForm(BaseModelForm):
         exclude = ('release_date', 'flow', 'build', 'waiting')
 
 class FlowForm(BaseModelForm):
+    targets = forms.ModelMultipleChoiceField(
+        queryset=models.Server.objects.all().order_by('name'),
+        required=False
+    )
+
+    targets.help_text = ''
+
     require_signoff = forms.BooleanField(
         label="Require sign-off",
         required=False)
@@ -37,7 +48,7 @@ class FlowForm(BaseModelForm):
         help_text="List email addresses on a new line")
 
     auto_release = forms.BooleanField(
-        help_text="Automatically deploy builds to this release stream", 
+        help_text="Automatically deploy new builds to this release workflow", 
         required=False)
 
     quorum = forms.IntegerField(
@@ -45,17 +56,25 @@ class FlowForm(BaseModelForm):
         initial=0,
         help_text="Required number of sign-offs before release. 0 means <strong>all</strong> are required")
 
+    stream_mode = forms.ChoiceField(
+        label='Release mode',
+        widget=forms.RadioSelect,
+        choices=((0, 'Stream',), (1, 'Server')))
+
     class Meta:
         exclude = ('project',)
         model = models.ReleaseFlow
+        fields = ['name', 'stream_mode', 'stream', 'targets', 'require_signoff', 'signoff_list', 'quorum', 'auto_release']
 
 class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")
+
     allowed_users = forms.ModelMultipleChoiceField(
         queryset=User.objects.all().order_by('username'),
-        required=False,
-        widget=forms.widgets.CheckboxSelectMultiple
+        required=False
     )
+    allowed_users.help_text = ''
+
     class Meta:
         model = models.Project
         exclude = ('idhash', 'created_by_user', 'release_stream')

@@ -1,94 +1,100 @@
-{% include "fragments/head.html" with nav_active="home" %}
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" with active="home" %}
+{% endblock %}
 
-    {% if not projects %}
-    <div class="hero-unit">
-          <h1>Welcome!</h1>
-          <p>Welcome to Sideloader. You are currently not yet assigned to any projects.</p>
-          <p><a class="btn btn-primary btn-large" href="{% url 'help_index' %}">Getting started</a></p>
+{% block content %}
+
+{% if not projects %}
+<div class="hero-unit">
+      <h1>Welcome!</h1>
+      <p>Welcome to Sideloader. You are currently not yet assigned to any projects.</p>
+      <p><a class="btn btn-primary btn-large" href="{% url 'help_index' %}">Getting started</a></p>
+</div>
+{% endif %}
+
+    <div class="col-lg-9">
+        <h4>Build queue</h4>
+        <p>
+            {% if builds %}
+            <table class="table table-hover table-bordered table-condensed">
+                <thead><tr><th>Build time</th><th>Project</th><th></th></tr></thead>
+                <tbody>
+                    {% for build in builds %}
+                    <tr class="info">
+                        <td width="180em">{{ build.build_time }}</td>
+                        <td><a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a></td>
+                        <td width="50em">
+                        {% if build.project.id %}
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-default" href="{% url 'build_cancel' id=build.id %}"><span class="glyphicon glyphicon-remove electric"></span></a>
+                                <a class="btnbtn-default" href="{% url 'build_view' id=build.id %}"><span class="glyphicon glyphicon-list electric"></span></a>
+                            </div>
+                        {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            No builds in progress
+            {% endif %}
+        </p>
     </div>
-    {% endif %}
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Build queue</h4>
-            <p>
-                {% if builds %}
-                <table class="table table-hover table-bordered table-condensed">
-                    <thead><tr><th>Build time</th><th>Project</th><th></th></tr></thead>
-                    <tbody>
-                        {% for build in builds %}
-                        <tr class="info">
-                            <td width="180em">{{ build.build_time }}</td>
-                            <td><a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a></td>
-                            <td width="10em">
-                            {% if build.project.id %}
-                                <div class="btn-group">
-                                    <a class="btn" href="{% url 'build_cancel' id=build.id %}"><i class="icon-remove" title="Cancel"></i></a>
-                                    <a class="btn" href="{% url 'build_view' id=build.id %}"><i class="icon-list" title="View log"></i></a>
-                                </div>
-                            {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                No builds in progress
-                {% endif %}
-            </p>
-        </div>
-    </div>
+    <div class="col-lg-9">
+        <h4>Last builds</h4>
+        <p>
+            {% if last_builds %}
+            <table class="table table-hover table-bordered table-condensed">
+                <thead><tr><th>Build time</th><th>Project</th><th>State</th><th></th></tr></thead>
+                <tbody>
+                    {% for build in last_builds %}
+                    {% if build.state == 0 %}<tr class="info">{%endif%}
+                    {% if build.state == 1 %}<tr class="success">{%endif%}
+                    {% if build.state == 2 %}<tr class="error">{%endif%}
+                        <td width="160em">{{ build.build_time }}</td>
+                        <td><a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a></td>
+                        <td>
+                            {% if build.state == 0 %}In Progress{%endif%}
+                            {% if build.state == 1 %}Success{%endif%}
+                            {% if build.state == 2 %}Failed{%endif%}
+                            {% if build.state == 3 %}Cancelled{%endif%}
+                        </td>
+                        <td width="130em">
+                            <div class="btn-group btn-group-sm">
+                                <a class="btn btn-default" href="{% url 'build_cancel' id=build.id %}"><span class="glyphicon glyphicon-remove electric"></span></a>
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Last builds</h4>
-            <p>
-                {% if last_builds %}
-                <table class="table table-hover table-bordered table-condensed">
-                    <thead><tr><th>Build time</th><th>Project</th><th>State</th><th></th></tr></thead>
-                    <tbody>
-                        {% for build in last_builds %}
-                        {% if build.state == 0 %}<tr class="info">{%endif%}
-                        {% if build.state == 1 %}<tr class="success">{%endif%}
-                        {% if build.state == 2 %}<tr class="error">{%endif%}
-                            <td width="180em">{{ build.build_time }}</td>
-                            <td width="50%"><a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a></td>
-                            <td>
-                                {% if build.state == 0 %}In Progress{%endif%}
-                                {% if build.state == 1 %}Success{%endif%}
-                                {% if build.state == 2 %}Failed{%endif%}
-                                {% if build.state == 3 %}Cancelled{%endif%}
-                            </td>
-                            <td width="80em">
-                                <div class="btn-group">
-                                    <a class="btn" href="{% url 'build_view' id=build.id %}"><i class="icon-list" title="View log"></i></a>
-                                    {% if build.state == 1 %}
-                                    <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
-                                        <i class="icon-fire" title="Release"></i> <span class="caret"></span>
-                                    </a>
-                                    <ul class="dropdown-menu">
+                                <a class="btn btn-default" href="{% url 'build_view' id=build.id %}"><span class="glyphicon glyphicon-list electric"></span></a>
+                                {% if build.state == 1 %}
+
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-default dropdown-toggle electric" data-toggle="dropdown">
+                                    <img src="/static/images/green-rocket-22x22.png" height="16"/> &nbsp;<span class="caret"></span>
+                                    </button>
+                                    <ul class="dropdown-menu pull-right">
                                         {% for workflow in build.project.releaseflow_set.all %}
                                         <li class="dropdown-submenu">
                                             <a tabindex="-1" href="#">{{workflow.name}}</a>
                                             <ul class="dropdown-menu">
-                                                <li><a href="{% url 'workflow_push' flow=workflow.id build=build.id %}"><i class="icon-hand-right"></i> Push</a></li>
-                                                <li><a href="{% url 'workflow_schedule' flow=workflow.id build=build.id %}"><i class="icon-time"></i> Schedule</a></li>
+                                                <li><a href="{% url 'workflow_push' flow=workflow.id build=build.id %}"><span class="glyphicon glyphicon-hand-right electric"></span> Push</a></li>
+                                                <li><a href="{% url 'workflow_schedule' flow=workflow.id build=build.id %}"><span class="glyphicon glyphicon-time electric"></span> Schedule</a></li>
                                             </ul>
                                         </li>
                                         {% endfor %}
                                     </ul>
-                                    {% endif %}
                                 </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                No builds
-                {% endif %}
-            </p>
-        </div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            No builds
+            {% endif %}
+        </p>
     </div>
 
-{% include "fragments/foot.html" %}
+{% endblock %}

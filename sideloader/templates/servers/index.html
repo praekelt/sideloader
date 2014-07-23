@@ -1,0 +1,26 @@
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" with active="servers" %}
+{% endblock %}
+
+{% block content %}
+<div class="col-lg-5">
+    <h4>Servers</h4>
+    <p>
+        {% if servers %}
+        <table class="table table-hover table-bordered table-condensed">
+            <tbody>
+                {% for server in servers %}
+                <tr>
+                    <td>{{ server.name }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <br/><br/>
+        No servers configured
+        {% endif %}
+    </p>
+</div>
+{% endblock %}

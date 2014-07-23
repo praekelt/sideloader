@@ -1,0 +1,31 @@
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
+
+{% block content %}
+
+{% if target %}
+    <div class="col-lg-9">
+        <h4>Server log - {{target.server}}</h4>
+        <p>
+            <strong>Project Name:</strong> <a href="{% url 'projects_view' id=target.release.project.id %}">{{ target.release.project.name }}</a>
+        </p>
+    </div>
+{% endif %}
+
+<div class="col-lg-9">
+    <p>
+        {% if target %}
+        <pre id="log" class="logview">
+        {{target.log}}
+        </pre>
+        {% else %}
+        Not authorized
+        {% endif %}
+    </p>
+</div>
+{% endblock %}
+
+{% block script %}
+{% endblock %}

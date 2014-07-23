@@ -1,16 +1,33 @@
+{% extends "fragments/default.html" %}
 {% load crispy_forms_tags %}
-{% include "fragments/head.html" with nav_active="projects" %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4 style="margin-bottom:10px">{% if workflow %}Edit workflow{% else %}Create workflow{% endif %}</h4>
-            {% crispy form %}
-        </div>
-    </div>
+{% block head %}
+<link href="/static/css/select2.css" rel="stylesheet"/>
+<link href="/static/css/select2-bootstrap.css" rel="stylesheet"/>
+{% endblock %}
 
+{% block content %}
+<div class="col-lg-9" id="formcontainer">
+    <h4 style="margin-bottom:10px">{% if workflow %}Edit workflow{% else %}Create workflow{% endif %}</h4>
+    {% crispy form %}
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="/static/js/select2.min.js"></script>
 <script>
     $(function () {
-        var signoff=true;
+        $("#id_targets").select2({
+            width: "resolve",
+            placeholder: "Select servers",
+            allowClear: true
+        })
+
+        var signoff = true;
 
         function toggleSignoff(){
             var signoff = !$("#id_require_signoff")[0].checked;
@@ -24,10 +41,24 @@
             }
         }
 
-        $("#id_require_signoff").click(function() {
-            toggleSignoff();
-        });
+        function toggleMode(){
+            var mode = $('input:radio[name=stream_mode]:checked').val();
+
+            if (mode==1) {
+                $("#div_id_stream").hide();
+                $("#div_id_targets").show();
+            }
+            else {
+                $("#div_id_stream").show();
+                $("#div_id_targets").hide();
+            }
+        }
+
+        $("#id_require_signoff").click(toggleSignoff);
         toggleSignoff();
+        
+        $('input:radio[name=stream_mode]').change(toggleMode);
+        toggleMode();
     });
 </script>
-{% include "fragments/foot.html" %}
+{% endblock %}

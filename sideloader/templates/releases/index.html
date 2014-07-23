@@ -1,33 +1,36 @@
-{% include "fragments/head.html" with nav_active="releases" %}
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" with active="releases" %}
+{% endblock %}
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Release streams</h4>
-            <p>
-                {% if user.is_superuser %}
-                <a href="{% url 'create_release' %}" class="btn btn-success">Create new</a>
-                {% endif %}
-                {% if releases %}
-                <table class="table table-hover table-bordered table-condensed">
-                    <tbody>
-                        {% for release in releases %}
-                        <tr class="info">
-                            <td width="100%">{{ release.name }}</td>
-                            {% if user.is_superuser %}
-                            <td><div class="btn-group">
-                                <a class="btn" href="{% url 'edit_release' id=release.id %}" title="Edit settings"><i class="icon-edit"></i></a>
-                            </div></td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <br/><br/>
-                No releases configured
-                {% endif %}
-            </p>
-        </div>
-    </div>
+{% block content %}
 
-{% include "fragments/foot.html" %}
+<div class="col-lg-5">
+    <h4>Release streams</h4>
+    <p>
+        {% if user.is_superuser %}
+        <a href="{% url 'create_release' %}" class="btn btn-default">Create new</a>
+        {% endif %}
+        {% if releases %}
+        <table class="table table-hover table-bordered table-condensed">
+            <tbody>
+                {% for release in releases %}
+                <tr>
+                    <td width="100%">{{ release.name }}</td>
+                    {% if user.is_superuser %}
+                    <td><div class="btn-group btn-group-sm">
+                        <a class="btn btn-default" href="{% url 'edit_release' id=release.id %}"><span class="glyphicon glyphicon-edit electric"></span></a>
+                    </div></td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <br/><br/>
+        No releases configured
+        {% endif %}
+    </p>
+</div>
+
+{% endblock %}

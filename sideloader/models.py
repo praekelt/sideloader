@@ -1,8 +1,15 @@
-import time, datetime
-from django.utils import timezone
+import time
 from django.db import models
 from django.contrib.auth.models import User
 
+class Server(models.Model):
+    name = models.CharField(max_length=255)
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
 
 class ReleaseStream(models.Model):
     name = models.CharField(max_length=255)
@@ -27,7 +34,9 @@ class Project(models.Model):
 class ReleaseFlow(models.Model):
     name = models.CharField(max_length=255)
     project = models.ForeignKey(Project)
-    stream = models.ForeignKey(ReleaseStream)
+
+    stream_mode = models.IntegerField(default=0)
+    stream = models.ForeignKey(ReleaseStream, null=True, blank=True)
 
     require_signoff = models.BooleanField(default=False)
     signoff_list = models.TextField(blank=True)
@@ -69,6 +78,16 @@ class Build(models.Model):
 
     build_file = models.CharField(max_length=255)
 
+class Target(models.Model):
+    server = models.ForeignKey(Server)
+    release = models.ForeignKey(ReleaseFlow)
+
+    # 0 - Nothing, 1 - In progress, 2 - Good, 3 - Bad
+    deploy_state = models.IntegerField(default=0)
+
+    current_build = models.ForeignKey(Build, null=True, blank=True)
+    log = models.TextField(default="")
+
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)
     flow = models.ForeignKey(ReleaseFlow)
@@ -77,6 +96,8 @@ class Release(models.Model):
     scheduled = models.DateTimeField(blank=True, null=True)
     
     waiting = models.BooleanField(default=True)
+
+    lock = models.BooleanField(default=False)
 
     def signoff_count(self):
         return self.releasesignoff_set.filter(signed=True).count()
