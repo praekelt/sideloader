@@ -1,98 +1,102 @@
-{% include "fragments/head.html" with nav_active="help" %}
+{% extends "fragments/default.html" %}
+{% block navbar %}
+<div class="col-sm-3 col-md-2 sidebar">
+ <ul class="nav nav-sidebar">
+      <li><a href="#intro"><i class="icon-chevron-right"></i>1. Getting started</a></li>
+      <li><a href="#deploy"><i class="icon-chevron-right"></i>2. Deploy YAML file</a></li>
+      <li><a href="#sideloader"><i class="icon-chevron-right"></i>3. Sideloader interface</a></li>
+  </ul>
+</div>
+{% endblock %}
 
-    <div class="row-fluid">
-      <div class="span3 sidebar">
-      <br/>
-        <ul class="nav nav-list">
-          <li><a href="#intro"><i class="icon-chevron-right"></i>1. Getting started</a></li>
-          <li><a href="#deploy"><i class="icon-chevron-right"></i>2. Deploy YAML file</a></li>
-          <li><a href="#sideloader"><i class="icon-chevron-right"></i>3. Sideloader interface</a></li>
-        </ul>
+{% block content %}
+
+<div class="row-fluid">
+  <div class="col-lg-9">
+    <section id="intro">
+      <div class="page-header">
+        <h1>1. Getting started</h1>
       </div>
-      <div class="span9">
-        <section id="intro">
-          <div class="page-header">
-            <h1>1. Getting started</h1>
-          </div>
-          <p>Sideloader is a build and release management system for Python applications which don't like setup.py.</p>
-          <p><img src="/static/images/slflow.png"/></p>
-          <p>In order for Sideloader to build a package it needs to know a few things about how to assemble it. This is defined in a <em>.deploy.yaml</em> file in the root of the git repository.</p>
-          <p>A simple deploy file is structured as follows
-          <pre>
+      <p>Sideloader is a build and release management system for people with better things to do than SSH into servers every time</p>
+      <p><img src="/static/images/slflow.png"/></p>
+      <p>In order for Sideloader to build a package it needs to know a few things about how to assemble it. This is defined in a <em>.deploy.yaml</em> file in the root of the git repository.</p>
+      <p>A simple deploy file is structured as follows
+      <pre>
+name: sideloader
 buildscript: scripts/deploy_sideloader
 postinstall: scripts/postinstall.sh
 pip:
- - gunicorn
- - django
+- gunicorn
+- django
 dependencies:
- - nginx
- - postgresql-server-dev-9.1
- - libpq-dev
+- nginx
+- postgresql-server-dev-9.1
+- libpq-dev
 </pre>
-            In this example Sideloader will retrieve the repository, construct a Python virtualenv, and execute scripts/deploy_sideloader from the workspace directory which will contain a <em>build</em> directory, and the repository checkout directory. This script must perform any necessary build functions such as installing additional libraries via pip, and place the relevant files for the package in a subfolder of the <em>build</em> directory. The simplest possible form of this is just <em>cp -a myrepo ./build/</em>
-          </p>
+        In this example Sideloader will retrieve the repository, construct a Python virtualenv, and execute scripts/deploy_sideloader from the workspace directory which will contain a <em>build</em> directory, and the repository checkout directory. This script must perform any necessary build functions such as installing additional libraries via pip, and place the relevant files for the package in a subfolder of the <em>build</em> directory. The simplest possible form of this is just <em>cp -a myrepo ./build/</em>
+      </p>
 
-          <p>The postinstall script will be executed when the package is installed. The structure of this script is different as it is wrapped inside a BASH script (so the script itself must be BASH) containing various environment variables and an active virtualenv.</p>
-          <p>In the case of a simple Django application you can do the following 
-            <pre>
-manage="${VENV}/bin/python ${INSTALLDIR}/myrepo/manage.py"
+      <p>The postinstall script will be executed when the package is installed. The structure of this script is different as it is wrapped inside a BASH script (so the script itself must be BASH) containing various environment variables and an active virtualenv.</p>
+      <p>In the case of a simple Django application you can do the following 
+        <pre>
+manage="${VENV}/bin/python ${INSTALLDIR}/mypackagename/manage.py"
 $manage syncdb --noinput --no-initial-data --migrate
 $manage collectstatic --noinput</pre>
-          </p>
-          <p>In the above deploy file example several Ubuntu package dependencies are also added to install additional requirements when the package is installed</p>
-        </section>
+      </p>
+      <p>In the above deploy file example several Ubuntu package dependencies are also added to install additional requirements when the package is installed</p>
+    </section>
 
 
-        <section id="deploy">
-          <div class="page-header"><h1>2. Deploy YAML file</h1></div>
-          <p>As discussed in the <em>Getting started</em> section the YAML deploy file contains instructions on building your package. It defines scripts to run for building and installing the package, dependencies for building and running the application and can also manage configurations for nginx and supervisor. This section gives a more detailed overview of these options.</p>
-          <p><h3>buildscript:</h3>
-          The buildscript is run to assemble the repository into a package, it is executed from the directory above the git checkout. It must copy all relevant files to the <em>build</em> directory. Since there can be no assumptions about where your package will be installed or built from (it will be built in a sandbox) there are a number of environment variables passed to the script to make this possible.
-          <table class="table table-bordered table-condensed">
-            <tr><td>$VENV</td><td>Path to virtualenv</td></tr>
-            <tr><td>$PIP</td><td>Path to pip binary in virtualenv</td></tr>
-            <tr><td>$WORKSPACE</td><td>Path to workspace for this build</td></tr>
-            <tr><td>$BUILD</td><td>Path to build directory</td></tr>
-            <tr><td>$INSTALLDIR</td><td>Path to where the build directory will be deployed</td></tr>
-            <tr><td>$REPO</td><td>The base repo name</td></tr>
-          </table>
-          When the package is built the virtualenv will be exported with <em>pip freeze</em> and the package install script will automatically install them on the destination.
-          </p>
-          <p><h3>postinstall:</h3>
-          The postinstall script is run after installation of the built .deb package. It can be used to run database migrations and other functions which can only be used with a working environment and it will be run as the root user from whatever path apt is run from. The postinstall script will also receive a number of environment variables, however it is not executed as a standalone script rather it is embedded in a wrapper script to configure a more useful environment. The following are provided
-          <table class="table table-bordered table-condensed">
-            <tr><td>$VENV</td><td>Path to virtualenv</td></tr>
-            <tr><td>$PIP</td><td>Path to pip binary in virtualenv</td></tr>
-            <tr><td>$INSTALLDIR</td><td>Path to where the build directory has been placed</td></tr>
-          </table>
-          </p>
-          <p><h3>nginx:</h3>
-          List nginx configuration files to copy to /etc/nginx/sites-enabled relative to the build directory. 
-          <pre>nginx:
- - foo-site/nginx/foo-site.conf</pre>
-          </p>
-          <p><h3>supervisor:</h3>
-          List supervisor configuration files to copy to /etc/supervisor/conf.d
-          <pre>supervisor:
- - foo-site/supervisor/foo-celery.conf</pre>
-          </p>
-          <p><h3>pip:</h3>
-          List of Python dependencies to install with pip. These packages will be frozen and installed during the packages post-install script, they will be pinned to the exact versions available when the package is built to ensure consistency.
-          </p>
-          <p><h3>dependencies:</h3>
-          List of apt package dependencies. This should include everything required to use the package, for example nginx or system libraries required for PIL or Postgresql. Do not install any database servers as they may not necessarily be on the same physical host as the application.
-          </p>
-        </section>
-        <section id="sideloader">
-          <div class="page-header"><h1>3. Sideloader interface</h1></div>
-          <p>The Sideloader interface provides a workflow for managing who can execute builds, an API for remotely triggering builds on git commit, and release streams to target specific platforms for the installation of the package (handled by Puppet).</p>
-          <p>
-        </section>
-      </div>
-    <script>
-        (function() {
-            $('#sidebar').scrollspy()
-        })();
-    </script>
+    <section id="deploy">
+      <div class="page-header"><h1>2. Deploy YAML file</h1></div>
+      <p>As discussed in the <em>Getting started</em> section the YAML deploy file contains instructions on building your package. It defines scripts to run for building and installing the package, dependencies for building and running the application and can also manage configurations for nginx and supervisor. This section gives a more detailed overview of these options.</p>
+      <p><h3>buildscript:</h3>
+      The buildscript is run to assemble the repository into a package, it is executed from the directory above the git checkout. It must copy all relevant files to the <em>build</em> directory. Since there can be no assumptions about where your package will be installed or built from (it will be built in a sandbox) there are a number of environment variables passed to the script to make this possible.
+      <table class="table table-bordered table-condensed">
+        <tr><td>$VENV</td><td>Path to virtualenv</td></tr>
+        <tr><td>$PIP</td><td>Path to pip binary in virtualenv</td></tr>
+        <tr><td>$WORKSPACE</td><td>Path to workspace for this build</td></tr>
+        <tr><td>$BUILD</td><td>Path to build directory</td></tr>
+        <tr><td>$INSTALLDIR</td><td>Path to where the build directory will be deployed</td></tr>
+        <tr><td>$REPO</td><td>The base repo name</td></tr>
+      </table>
+      When the package is built the virtualenv will be exported with <em>pip freeze</em> and the package install script will automatically install them on the destination.
+      </p>
+      <p><h3>postinstall:</h3>
+      The postinstall script is run after installation of the built .deb package. It can be used to run database migrations and other functions which can only be used with a working environment and it will be run as the root user from whatever path apt is run from. The postinstall script will also receive a number of environment variables, however it is not executed as a standalone script rather it is embedded in a wrapper script to configure a more useful environment. The following are provided
+      <table class="table table-bordered table-condensed">
+        <tr><td>$VENV</td><td>Path to virtualenv</td></tr>
+        <tr><td>$PIP</td><td>Path to pip binary in virtualenv</td></tr>
+        <tr><td>$INSTALLDIR</td><td>Path to where the build directory has been placed</td></tr>
+      </table>
+      </p>
+      <p><h3>nginx:</h3>
+      List nginx configuration files to copy to /etc/nginx/sites-enabled relative to the build directory. 
+      <pre>nginx:
+- foo-site/nginx/foo-site.conf</pre>
+      </p>
+      <p><h3>supervisor:</h3>
+      List supervisor configuration files to copy to /etc/supervisor/conf.d
+      <pre>supervisor:
+- foo-site/supervisor/foo-celery.conf</pre>
+      </p>
+      <p><h3>pip:</h3>
+      List of Python dependencies to install with pip. These packages will be frozen and installed during the packages post-install script, they will be pinned to the exact versions available when the package is built to ensure consistency.
+      </p>
+      <p><h3>dependencies:</h3>
+      List of apt package dependencies. This should include everything required to use the package, for example nginx or system libraries required for PIL or Postgresql. Do not install any database servers as they may not necessarily be on the same physical host as the application.
+      </p>
+    </section>
+    <section id="sideloader">
+      <div class="page-header"><h1>3. Sideloader interface</h1></div>
+      <p>The Sideloader interface provides a workflow for managing who can execute builds, an API for remotely triggering builds on git commit, and release streams to target specific platforms for the installation of the package (handled by Puppet).</p>
+      <p>
+    </section>
+  </div>
+<script>
+    (function() {
+        $('#sidebar').scrollspy()
+    })();
+</script>
 
-{% include "fragments/foot.html" %}
+{% endblock %}

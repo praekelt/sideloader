@@ -82,6 +82,12 @@ class Target(models.Model):
     server = models.ForeignKey(Server)
     release = models.ForeignKey(ReleaseFlow)
 
+    # 0 - Nothing, 1 - In progress, 2 - Good, 3 - Bad
+    deploy_state = models.IntegerField(default=0)
+
+    current_build = models.ForeignKey(Build, null=True, blank=True)
+    log = models.TextField(default="")
+
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)
     flow = models.ForeignKey(ReleaseFlow)
@@ -90,6 +96,8 @@ class Release(models.Model):
     scheduled = models.DateTimeField(blank=True, null=True)
     
     waiting = models.BooleanField(default=True)
+
+    lock = models.BooleanField(default=False)
 
     def signoff_count(self):
         return self.releasesignoff_set.filter(signed=True).count()

@@ -1,15 +1,23 @@
+{% extends "fragments/default.html" %}
 {% load crispy_forms_tags %}
-{% include "fragments/head.html" with nav_active="projects" %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
 
-    <div class="row-fluid">
-        <div class="span9" id="formcontainer">
-            <h4 style="margin-bottom:10px">{% if workflow %}Edit workflow{% else %}Create workflow{% endif %}</h4>
-            {% crispy form %}
-
-        </div>
-    </div>
-
+{% block head %}
 <link href="/static/css/select2.css" rel="stylesheet"/>
+<link href="/static/css/select2-bootstrap.css" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="col-lg-9" id="formcontainer">
+    <h4 style="margin-bottom:10px">{% if workflow %}Edit workflow{% else %}Create workflow{% endif %}</h4>
+    {% crispy form %}
+
+</div>
+{% endblock %}
+
+{% block script %}
 <script src="/static/js/select2.min.js"></script>
 <script>
     $(function () {
@@ -53,4 +61,4 @@
         toggleMode();
     });
 </script>
-{% include "fragments/foot.html" %}
+{% endblock %}

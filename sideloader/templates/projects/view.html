@@ -1,136 +1,169 @@
-{% include "fragments/head.html" with nav_active="projects" %}
-    {% if not project %}
-    <div class="row-fluid"><div class="span9">Not Authorized</div></div>
-    {% else %}
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Project details</h4>
-            <p>
-                <strong>Name:</strong> {{project.name}}
-                <br/>
-                <strong>Github url:</strong> {{project.github_url}}
-                <br/>
-                <strong>Branch:</strong> {{project.branch}}
-                <br/>
-                <br/>
-                <strong>Hook url:</strong> {{hook_uri}}
-            </p>
-        </div>
-    </div>
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Release workflows</h4>
-            <a href="{% url 'workflow_create' project=project.id %}" class="btn btn-success">Create workflow</a>
-            <p>
-            {% if project.releaseflow_set.all %}
-                <table class="table table-hover table-bordered table-condensed">
-                    <tbody>
-                        <thead><tr><th>Name</th><th>Current Release</th><th>Auto</th><th></th></tr></thead>
-                        {% for workflow in project.releaseflow_set.all %}
-                        <tr>
-                            <td>{{ workflow.name }}</td>
-                            <td>{{ workflow.last_release.build.build_file }}</td>
-                            <td>{% if workflow.auto_release %}<i class="icon-ok"></i>{% endif %}</td>
-                            <td>
-                                {% if user.is_superuser %}
-                                <div class="btn-group">
-                                    <a class="btn" href="{% url 'workflow_edit' id=workflow.id %}" title="Edit"><i class="icon-edit"></i></a>
-                                    <a class="btn" href="{% url 'workflow_delete' id=workflow.id %}" title="Delete"><i class="icon-remove"></i></a>
-                                </div>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
- 
-            {% else %}
-            <div class="alert">
-                <strong>No release flows!</strong>
-            </div>
+{% block content %}
+
+{% if not project %}
+Not Authorized
+{% else %}
+<div class="col-lg-9">
+    <div class="row">
+        <div class="col-lg-9">
+            <h4>{{project.name}}</h4>
+        </div>
+        <div class="col-lg-3">
+            {% if user.is_superuser %}
+            <a href="{% url 'projects_edit' id=project.id %}" class="btn btn-default">Edit</a>
+            <a href="{% url 'projects_delete' id=project.id %}" class="btn btn-default">Delete</a>
             {% endif %}
-            </p>
         </div>
     </div>
+    <br/>
+    <dl class="dl-horizontal">
+    <dt>Github url:</dt><dd>{{project.github_url}}</dd>
+    <dt>Branch:</dt><dd>{{project.branch}}</dd>
+    <dt>Hook url:</dt><dd>{{hook_uri}}</dd>
+</div>
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Releases</h4>
-            <p>
-                <table class="table table-hover table-bordered table-condensed">
-                    <thead><tr><th>Request date</th><th>Workflow</th><th>Build</th><th>Status</th><th></th></tr></thead>
-                    <tbody>
-                        {% for release in releases %}
-                        <tr>
-                            <td >{{ release.release_date }}</td>
-                            <td >{{ release.flow.name }}</td>
-                            <td >{{ release.build.build_file }}</td>
-                            <td >{{ release.get_state }}</td>
-                            <td>
-                                <div class="btn-group">
-                                    <a class="btn" href="{% url 'release_delete' id=release.id %}" title="Delete"><i class="icon-remove"></i></a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </p>
-        </div>
-    </div>
+<div class="col-lg-9">
+    <h4>Release workflows</h4>
+    {% if user.is_superuser %}
+    <a href="{% url 'workflow_create' project=project.id %}" class="btn btn-default">Create workflow</a>
+    {% endif %}
+    <p>
+    {% if project.releaseflow_set.all %}
+        <table class="table table-hover table-bordered table-condensed">
+            <tbody>
+                <thead><tr>
+                    <th>Name</th>
+                    <th>Auto</th>
+                    <th>Current Release</th>
+                    {% if user.is_superuser %}<th></th>{% endif %}
+                </tr></thead>
+                {% for workflow in project.releaseflow_set.all %}
+                <tr>
+                    <td>{{ workflow.name }}</td>
+                    <td>{% if workflow.auto_release %}<span class="glyphicon glyphicon-ok electric"></span>{% endif %}</td>
+                    {% if workflow.stream_mode == 0 %}
+                    <td>{{ workflow.last_release.build.build_file }}</td>
+                    {% else %}
+                    <td>
+                    {% for target in workflow.target_set.all %}
+                        <strong>Server: {{target.server}} (<a href="{% url 'server_log' id=target.id %}">view log</a>)</strong><br/>
+                        State:
+                            {% if target.deploy_state == 0 %}Unknown{% endif %}
+                            {% if target.deploy_state == 1 %}Deploy in progress{% endif %}
+                            {% if target.deploy_state == 2 %}Deployed{% endif %}
+                            {% if target.deploy_state == 3 %}Problem{% endif %}
+                        <br/>
+                        Release:
+                            {% if target.current_build.build_file %}{{target.current_build.build_file}}{% else %}None{% endif %}
+                        <br/>
+                    {% endfor %}
+                    </td>
+                    {% endif %}
+                    {% if user.is_superuser %}
+                    <td width="80em">
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-default" href="{% url 'workflow_edit' id=workflow.id %}" title="Edit"><span class="glyphicon glyphicon-edit electric"></span></a>
+                            <a class="btn btn-default" href="{% url 'workflow_delete' id=workflow.id %}" title="Delete"><span class="glyphicon glyphicon-remove electric"></span></a>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Builds for {{project.name}}</h4>
-            <a href="{% url 'projects_build' id=project.id %}" class="btn btn-danger">Build!</a>
-            <p>
-                <table class="table table-hover table-bordered table-condensed">
-                    <tbody>
-                        {% for build in builds %}
-                        {% if build.state == 0 %}<tr class="info">{%endif%}
-                        {% if build.state == 1 %}<tr class="success">{%endif%}
-                        {% if build.state == 2 %}<tr class="error">{%endif%}
-                            </td>
-                            <td width="100%">{{ build.build_time }}</td>
-                            <td>{{ build.build_file }}</td>
-                            <td>
-                                {% if build.state == 0 %}In Progress{%endif%}
-                                {% if build.state == 1 %}Success{%endif%}
-                                {% if build.state == 2 %}Failed{%endif%}
-                                {% if build.state == 3 %}Cancelled{%endif%}
-                            </td>
-                            <td>
-                                <div class="btn-group">
-                                    <a class="btn" href="{% url 'build_view' id=build.id %}"><i class="icon-list" title="View log"></i></a>
-                                    {% if build.state == 0 %}
-                                    <a class="btn" href="{% url 'build_cancel' id=build.id %}"><i class="icon-remove" title="Cancel"></i></a>
-                                    {% endif %}
-                                    {% if build.state == 1 %}
-                                    <a class="btn dropdown-toggle" data-toggle="dropdown" href="#">
-                                        <i class="icon-fire" title="Release"></i> <span class="caret"></span>
-                                    </a>
-                                    <ul class="dropdown-menu">
-                                        {% for workflow in project.releaseflow_set.all %}
-                                        <li class="dropdown-submenu">
-                                            <a tabindex="-1" href="#">{{workflow.name}}</a>
-                                            <ul class="dropdown-menu">
-                                                <li><a href="{% url 'workflow_push' flow=workflow.id build=build.id %}"><i class="icon-hand-right"></i> Push</a></li>
-                                                <li><a href="{% url 'workflow_schedule' flow=workflow.id build=build.id %}"><i class="icon-time"></i> Schedule</a></li>
-                                            </ul>
-                                        </li>
-                                        {% endfor %}
-                                    </ul>
-                                    {% endif %}
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </p>
-        </div>
+    {% else %}
+    <div class="alert">
+        <strong>No release flows!</strong>
     </div>
     {% endif %}
-{% include "fragments/foot.html" %}
+    </p>
+</div>
+
+<div class="col-lg-9">
+    <h4>Releases</h4>
+    <p>
+        <table class="table table-hover table-bordered table-condensed">
+            <thead><tr><th>Request date</th><th>Workflow</th><th>Build</th><th>Status</th>{% if user.is_superuser %}<th></th>{%endif%}</tr></thead>
+            <tbody>
+                {% for release in releases %}
+                <tr>
+                    <td >{{ release.release_date }}</td>
+                    <td >{{ release.flow.name }}</td>
+                    <td >{{ release.build.build_file }}</td>
+                    <td >{{ release.get_state }}</td>
+                    {% if user.is_superuser %}
+                    <td width="50em">
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-default" href="{% url 'release_delete' id=release.id %}" title="Delete"><span class="glyphicon glyphicon-remove electric"></span></a>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </p>
+</div>
+
+
+<div class="col-lg-9">
+    <h4>Builds</h4>
+    <a href="{% url 'projects_build' id=project.id %}" class="btn btn-primary">Build!</a>
+    <p>
+        <table class="table table-hover table-bordered table-condensed">
+            <thead><tr><th>Build date</th><th>Build</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                {% for build in builds %}
+                {% if build.state == 0 %}<tr class="info">{%endif%}
+                {% if build.state == 1 %}<tr class="success">{%endif%}
+                {% if build.state == 2 %}<tr class="error">{%endif%}
+                {% if build.state == 3 %}<tr class="warning">{%endif%}
+                    </td>
+                    <td>{{ build.build_time }}</td>
+                    <td>{{ build.build_file }}</td>
+                    <td>
+                        {% if build.state == 0 %}In Progress{%endif%}
+                        {% if build.state == 1 %}Success{%endif%}
+                        {% if build.state == 2 %}Failed{%endif%}
+                        {% if build.state == 3 %}Cancelled{%endif%}
+                    </td>
+                    <td width="100em">
+                        <div class="btn-group btn-group-sm">
+                            <a class="btn btn-default" href="{% url 'build_view' id=build.id %}"><span class="glyphicon glyphicon-list electric"></span></a>
+                            {% if build.state == 0 %}
+                            <a class="btn btn-default" href="{% url 'build_cancel' id=build.id %}"><span class="glyphicon glyphicon-remove electric"></span></a>
+                            {% endif %}
+                            {% if build.state == 1 %}
+                            <div class="btn-group btn-group-sm">
+                                <button type="button" class="btn btn-default dropdown-toggle electric" data-toggle="dropdown">
+                                <img src="/static/images/green-rocket-22x22.png" height="16"/> &nbsp;<span class="caret"></span>
+                                </button>
+                                <ul class="dropdown-menu pull-right">
+                                    {% for workflow in build.project.releaseflow_set.all %}
+                                    <li class="dropdown-submenu">
+                                        <a tabindex="-1" href="#">{{workflow.name}}</a>
+                                        <ul class="dropdown-menu">
+                                            <li><a href="{% url 'workflow_push' flow=workflow.id build=build.id %}"><span class="glyphicon glyphicon-hand-right electric"></span> Push</a></li>
+                                            <li><a href="{% url 'workflow_schedule' flow=workflow.id build=build.id %}"><span class="glyphicon glyphicon-time electric"></span> Schedule</a></li>
+                                        </ul>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </p>
+</div>
+{% endif %}
+{% endblock %}

@@ -7,11 +7,15 @@ import models
 class BaseModelForm(forms.ModelForm):
     helper = FormHelper()
     helper.form_class = 'form-horizontal'
+    helper.label_class = 'col-lg-2'
+    helper.field_class = 'col-lg-8'
     helper.add_input(Submit('submit', 'Submit'))
 
 class BaseForm(forms.Form):
     helper = FormHelper()
     helper.form_class = 'form-horizontal'
+    helper.label_class = 'col-lg-2'
+    helper.field_class = 'col-lg-8'
     helper.add_input(Submit('submit', 'Submit'))
 
 class ReleaseForm(BaseModelForm):

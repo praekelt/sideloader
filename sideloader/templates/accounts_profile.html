@@ -1,13 +1,14 @@
+{% extends "fragments/default.html" %}
 {% load crispy_forms_tags %}
-{% include "fragments/head.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
 
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Account settings: {{user.username}}</h4>
-            <p>
-                {% crispy form %}
-            </p>
-        </div>
-    </div>
-
-{% include "fragments/foot.html" %}
+{% block content %}
+<div class="col-lg-9">
+    <h4>Account settings</h4>
+    <p>
+        {% crispy form %}
+    </p>
+</div>
+{% endblock %}
