@@ -108,7 +108,9 @@ def pushTargets(release, flow):
             settings.SIDELOADER_PACKAGEURL, 
             release.build.build_file
         )
- 
+
+        stop = sc.get_all_stop()['stdout']
+
         result = sc.post_install({
             'package': package,
             'url': url
@@ -119,13 +121,19 @@ def pushTargets(release, flow):
             # Errors during deployment
             target.deploy_state=3
             if 'error' in result:
-                target.log = result['error']
+                target.log = '\n'.join([stop, result['error']])
             else:
-                target.log = result['stdout'] +'\n'+ result['stderr']
+                target.log = '\n'.join([
+                    stop, result['stdout'], result['stderr']
+                ])
             target.save()
         else:
+            puppet = sc.get_puppet_run()['stdout']
+            start = sc.get_all_start()['stdout']
             target.deploy_state=2
-            target.log = result['stdout'] +'\n'+ result['stderr']
+            target.log += '\n'.join([
+                stop, result['stdout'], result['stderr'], puppet, start
+            ])
             target.current_build = release.build
             target.save()
 
