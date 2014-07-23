@@ -445,7 +445,8 @@ def build_cancel(request, id):
 @login_required
 def projects_build(request, id):
     project = models.Project.objects.get(id=id)
-    if project and (project in request.user.project_set.all()):
+    if project and (request.user.is_superuser or (
+        project in request.user.project_set.all())):
         current_builds = models.Build.objects.filter(project=project, state=0)
         if current_builds:
             return redirect('build_view', id=current_builds[0].id)
