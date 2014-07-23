@@ -131,7 +131,7 @@ def pushTargets(release, flow):
             puppet = sc.get_puppet_run()['stdout']
             start = sc.get_all_start()['stdout']
             target.deploy_state=2
-            target.log += '\n'.join([
+            target.log = '\n'.join([
                 stop, result['stdout'], result['stderr'], puppet, start
             ])
             target.current_build = release.build
