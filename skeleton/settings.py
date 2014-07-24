@@ -225,6 +225,10 @@ SIDELOADER_DOMAIN = socket.getfqdn()
 SIDELOADER_FROM = 'Sideloader <no-reply@%s>' % SIDELOADER_DOMAIN
 SIDELOADER_PACKAGEURL = "http://%s/packages" % SIDELOADER_DOMAIN
 
+SLACK_TOKEN = None
+SLACK_CHANNEL = ''
+SLACK_HOST = 'foo.slack.com'
+
 try:
     from local_settings import *
 except ImportError:

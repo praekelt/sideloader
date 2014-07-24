@@ -11,7 +11,15 @@ from email.MIMEMultipart import MIMEMultipart
 
 from django.conf import settings
 from celery import task
-from sideloader import models, specter
+from sideloader import models, specter, slack
+
+@task()
+def sendNotification(message):
+    if settings.SLACK_TOKEN:
+        sc = slack.SlackClient(settings.SLACK_HOST,
+                settings.SLACK_TOKEN, settings.SLACK_CHANNEL)
+
+        sc.message(message)
 
 @task()
 def sendEmail(to, content, subject):
@@ -95,6 +103,14 @@ def pushTargets(release, flow):
     targets = flow.target_set.all()
 
     for target in targets:
+
+
+        sendNotification.delay('%s - Deployment started for build %s -> %s' % (
+            target.release.project.name,
+            release.build.build_file,
+            target.server.name
+        ))
+
         target.deploy_state=1
         target.save()
 
@@ -202,6 +218,11 @@ def build(build, giturl, branch):
     if settings.DEBUG:
         print "Executing build %s %s" % (giturl, branch)
 
+    build.save()
+
+    sendNotification.delay('%s - Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
+        build.project.name, settings.SIDELOADER_DOMAIN, build.id, build.id, branch))
+
     args = [buildpack, '--branch', branch]
 
     if build.project.deploy_file:
@@ -225,8 +246,12 @@ def build(build, giturl, branch):
 
     if builder.returncode != 0:
         build.state = 2
+        sendNotification.delay('%s - Build <http://%s/projects/build/view/%s|#%s> failed' % (
+            build.project.name, settings.SIDELOADER_DOMAIN, build.id, build.id))
     else:
         build.state = 1
+        sendNotification.delay('%s - Build <http://%s/projects/build/view/%s|#%s> successful' % (
+            build.project.name, settings.SIDELOADER_DOMAIN, build.id, build.id))
         if not os.path.exists(packages):
             os.makedirs(packages)
 
