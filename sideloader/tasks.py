@@ -181,6 +181,12 @@ def pushTargets(release, flow):
             target.log = str(e)
             target.deploy_state=3
             target.save()
+            
+            sendNotification.delay('%s - Deployment of build %s to %s failed!' % (
+                target.release.project.name,
+                release.build.build_file,
+                target.server.name
+            ))
 
     release.lock = False
     release.waiting = False
