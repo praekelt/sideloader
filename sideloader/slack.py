@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Specter client library
+# Slack client library
 
 import httplib
 import urllib
