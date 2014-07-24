@@ -77,8 +77,22 @@ def doRelease(build, flow, scheduled=None):
     release.save()
 
     if scheduled:
+        sendNotification.delay('%s - Deployment scheduled for build %s at %s UTC to %s' % (
+            release.flow.project.name,
+            release.build.build_file,
+            release.scheduled,
+            release.flow.name
+        ))
+
         for name, email in settings.ADMINS:
             sendScheduleNotification.delay(email, release)
+
+    else:
+        sendNotification.delay('%s - Deployment queued for build %s to %s' % (
+            release.flow.project.name,
+            release.build.build_file,
+            release.flow.name
+        ))
 
     if flow.require_signoff:
         # Create a signoff release
@@ -103,7 +117,6 @@ def pushTargets(release, flow):
     targets = flow.target_set.all()
 
     for target in targets:
-
 
         sendNotification.delay('%s - Deployment started for build %s -> %s' % (
             target.release.project.name,
@@ -143,6 +156,11 @@ def pushTargets(release, flow):
                     stop, result['stdout'], result['stderr']
                 ])
             target.save()
+            sendNotification.delay('%s - Deployment of build %s to %s failed!' % (
+                target.release.project.name,
+                release.build.build_file,
+                target.server.name
+            ))
         else:
             puppet = sc.get_puppet_run()['stdout']
             start = sc.get_all_start()['stdout']
@@ -152,6 +170,12 @@ def pushTargets(release, flow):
             ])
             target.current_build = release.build
             target.save()
+            sendNotification.delay('%s - Deployment of build %s to %s complete' % (
+                target.release.project.name,
+                release.build.build_file,
+                target.server.name
+            ))
+
 
     release.lock = False
     release.waiting = False
@@ -182,6 +206,11 @@ def runRelease(release):
 
             # Release the build
             if flow.stream_mode == 0:
+                sendNotification.delay('%s - Pushing build %s to %s stream' % (
+                    release.flow.project.name,
+                    release.build.build_file,
+                    release.flow.stream.name
+                ))
                 # Stream release
                 push_cmd = release.flow.stream.push_command
                 os.system(push_cmd % os.path.join(

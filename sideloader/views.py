@@ -275,6 +275,8 @@ def workflow_schedule(request, flow, build):
 
     if request.method == "POST":
         form = forms.ReleasePushForm(request.POST)
+        print form.is_valid()
+        print form.data
         if form.is_valid():
             release = form.cleaned_data
 
