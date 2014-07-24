@@ -182,7 +182,6 @@ def workflow_create(request, project):
 
             # Create target link if none exists
             for server in form.cleaned_data['targets']:
-                print repr(server)
                 try:
                     target = models.Target.objects.get(server=server, release=flow)
                 except models.Target.DoesNotExist:
@@ -275,8 +274,6 @@ def workflow_schedule(request, flow, build):
 
     if request.method == "POST":
         form = forms.ReleasePushForm(request.POST)
-        print form.is_valid()
-        print form.data
         if form.is_valid():
             release = form.cleaned_data
 
