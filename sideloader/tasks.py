@@ -138,44 +138,49 @@ def pushTargets(release, flow):
             release.build.build_file
         )
 
-        stop = sc.get_all_stop()['stdout']
+        try:
+            stop = sc.get_all_stop()['stdout']
 
-        result = sc.post_install({
-            'package': package,
-            'url': url
-        })
+            result = sc.post_install({
+                'package': package,
+                'url': url
+            })
 
-        if ('error' in result) or (result.get('code',2) > 0) or (
-            result.get('stderr') and not result.get('stdout')):
-            # Errors during deployment
-            target.deploy_state=3
-            if 'error' in result:
-                target.log = '\n'.join([stop, result['error']])
+            if ('error' in result) or (result.get('code',2) > 0) or (
+                result.get('stderr') and not result.get('stdout')):
+                # Errors during deployment
+                target.deploy_state=3
+                if 'error' in result:
+                    target.log = '\n'.join([stop, result['error']])
+                else:
+                    target.log = '\n'.join([
+                        stop, result['stdout'], result['stderr']
+                    ])
+                target.save()
+                sendNotification.delay('%s - Deployment of build %s to %s failed!' % (
+                    target.release.project.name,
+                    release.build.build_file,
+                    target.server.name
+                ))
             else:
+                puppet = sc.get_puppet_run()['stdout']
+                start = sc.get_all_start()['stdout']
+                target.deploy_state=2
                 target.log = '\n'.join([
-                    stop, result['stdout'], result['stderr']
+                    stop, result['stdout'], result['stderr'], puppet, start
                 ])
-            target.save()
-            sendNotification.delay('%s - Deployment of build %s to %s failed!' % (
-                target.release.project.name,
-                release.build.build_file,
-                target.server.name
-            ))
-        else:
-            puppet = sc.get_puppet_run()['stdout']
-            start = sc.get_all_start()['stdout']
-            target.deploy_state=2
-            target.log = '\n'.join([
-                stop, result['stdout'], result['stderr'], puppet, start
-            ])
-            target.current_build = release.build
-            target.save()
-            sendNotification.delay('%s - Deployment of build %s to %s complete' % (
-                target.release.project.name,
-                release.build.build_file,
-                target.server.name
-            ))
+                target.current_build = release.build
+                target.save()
+                sendNotification.delay('%s - Deployment of build %s to %s complete' % (
+                    target.release.project.name,
+                    release.build.build_file,
+                    target.server.name
+                ))
 
+        except Exception, e:
+            target.log = str(e)
+            target.deploy_state=3
+            target.save()
 
     release.lock = False
     release.waiting = False
