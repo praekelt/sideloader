@@ -182,7 +182,6 @@ def workflow_create(request, project):
 
             # Create target link if none exists
             for server in form.cleaned_data['targets']:
-                print repr(server)
                 try:
                     target = models.Target.objects.get(server=server, release=flow)
                 except models.Target.DoesNotExist:
