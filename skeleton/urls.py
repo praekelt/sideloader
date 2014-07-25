@@ -45,6 +45,7 @@ urlpatterns = patterns('',
     url(r'^api/build/(?P<hash>[\w-]+)$', 'sideloader.views.api_build', name='api_build'),
     url(r'^api/rap/(?P<hash>[\w-]+)$', 'sideloader.views.api_sign', name='api_sign'),
     url(r'^api/checkin$', 'sideloader.views.api_checkin', name='api_checkin'),
+    url(r'^api/enc/(?P<server>[\w.-]+)$', 'sideloader.views.api_enc', name='api_enc'),
 
     # Authentication
     url(r'^accounts/login/$', 'django.contrib.auth.views.login', {'template_name': 'login.html'}),

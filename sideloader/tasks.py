@@ -87,13 +87,6 @@ def doRelease(build, flow, scheduled=None):
         for name, email in settings.ADMINS:
             sendScheduleNotification.delay(email, release)
 
-    else:
-        sendNotification.delay('%s - Deployment queued for build %s to %s' % (
-            release.flow.project.name,
-            release.build.build_file,
-            release.flow.name
-        ))
-
     if flow.require_signoff:
         # Create a signoff release
         # Turn whatever junk is in the email text into a list

@@ -3,6 +3,7 @@ import uuid
 import urlparse
 import json
 import hashlib, hmac, base64
+import yaml
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -544,7 +545,63 @@ def api_checkin(request):
 
             server.save()
 
+            return HttpResponse(json.dumps({}), 
+                content_type='application/json')
+
     return HttpResponse(
             json.dumps({"error": "Not authorized"}), 
             content_type='application/json'
         )
+
+@csrf_exempt
+def api_enc(request, server):
+    # Puppet ENC
+    if verifyHMAC(request):
+        # Build our ENC dict
+        try:
+            server = models.Server.objects.get(name=server)
+        except:
+            server = None
+
+        if server:
+            releases = [target.release for target in server.target_set.all()]
+
+            cdict = {}
+            for release in releases:
+                for manifest in release.servermanifest_set.all():
+                    key = manifest.module.key
+                    value = json.loads(manifest.value)
+
+                    if isinstance(value, list):
+                        if key in cdict:
+                            cdict[key].extend(value)
+                        else:
+                            cdict[key] = value
+
+                    if isinstance(value, dict):
+                        for k, v in value.items():
+                            if key in cdict:
+                                cdict[key][k] = v
+                            else:
+                                cdict[key] = {k: v}
+
+            node = {
+                'classes':{
+                    'firewall':{},
+                    'sideloader':{}
+                },
+                'parameters': cdict
+            }
+        else:
+            node = {}
+
+        print node
+
+        return HttpResponse(yaml.dump(node),
+            content_type='application/yaml')
+
+    return HttpResponse(
+            json.dumps({"error": "Not authorized"}), 
+            content_type='application/json'
+        )
+

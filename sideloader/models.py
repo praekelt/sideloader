@@ -11,6 +11,7 @@ class Server(models.Model):
     def __str__(self):
         return self.__unicode__().encode('utf-8', 'replace')
 
+
 class ReleaseStream(models.Model):
     name = models.CharField(max_length=255)
     push_command = models.CharField(max_length=255)
@@ -87,6 +88,17 @@ class Target(models.Model):
 
     current_build = models.ForeignKey(Build, null=True, blank=True)
     log = models.TextField(default="")
+
+class ModuleManifest(models.Model):
+    name = models.CharField(max_length=255)
+    key = models.CharField(max_length=255)
+    structure = models.TextField()
+
+class ServerManifest(models.Model):
+    module = models.ForeignKey(ModuleManifest)
+    value = models.TextField()
+
+    release = models.ForeignKey(ReleaseFlow)
 
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)
