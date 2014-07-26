@@ -1,6 +1,5 @@
 <div class="col-sm-3 col-md-2 sidebar">
- <ul class="nav nav-sidebar">
-
+  <ul class="nav nav-sidebar">
     <li {% if active == "home" %}class="active"{% endif %}><a href="{% url 'home' %}">Build queue</a></li>
     {% if user.is_superuser %}
     <li {% if active == "releases" %}class="active"{% endif %}><a href="{% url 'release_index' %}">Release streams</a></li>
@@ -9,9 +8,13 @@
     {% endif %}
     <li {% if active == "help" %}class="active"{% endif %}><a href="{% url 'help_index' %}">Help</a></li>
   </ul>
-Projects
-<input placeholder="Search Projects" id="box" type="text" /> 
- <ul class="nav nav-sidebar nav-search">
+  <h4>Projects
+  {% if user.is_superuser %}
+  &nbsp;[<a href="{% url 'projects_create' %}" > + </a>]
+  {% endif %}
+  </h4>
+  <input placeholder="Search Projects" id="box" type="text" />
+  <ul class="nav nav-sidebar nav-search">
     {% for p in projects %}
     <li {% if p.id == project.id %}class="active"{% endif %}>
         <a href="{% url 'projects_view' id=p.id %}">&nbsp;&nbsp;{{ p.name }}</a>
