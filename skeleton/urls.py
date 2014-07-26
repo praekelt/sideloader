@@ -27,6 +27,17 @@ urlpatterns = patterns('',
     url(r'^workflow/push/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_push', name='workflow_push'),
     url(r'^workflow/schedule/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_schedule', name='workflow_schedule'),
 
+    url(r'^workflow/manifests/(?P<id>[\w-]+)$', 'sideloader.views.manifest_view', name='manifest_view'),
+    url(r'^workflow/manifests/add/(?P<id>[\w-]+)$', 'sideloader.views.manifest_add', name='manifest_add'),
+    url(r'^workflow/manifests/edit/(?P<id>[\w-]+)$', 'sideloader.views.manifest_edit', name='manifest_edit'),
+    url(r'^workflow/manifests/delete/(?P<id>[\w-]+)$', 'sideloader.views.manifest_delete', name='manifest_delete'),
+
+    # Modules
+    url(r'^modules/edit/(?P<id>[\w]+)$', 'sideloader.views.module_edit', name='module_edit'),
+    url(r'^modules/create$', 'sideloader.views.module_create', name='module_create'),
+    url(r'^modules/get_scheme/(?P<id>[\w]+)$', 'sideloader.views.module_scheme', name='module_scheme'),
+    url(r'^modules/$', 'sideloader.views.module_index', name='module_index'),
+
     # Releases
     url(r'^releases/edit/(?P<id>[\w-]+)$', 'sideloader.views.release_edit', name='edit_release'),
     url(r'^releases/create$', 'sideloader.views.release_create', name='create_release'),
@@ -45,6 +56,7 @@ urlpatterns = patterns('',
     url(r'^api/build/(?P<hash>[\w-]+)$', 'sideloader.views.api_build', name='api_build'),
     url(r'^api/rap/(?P<hash>[\w-]+)$', 'sideloader.views.api_sign', name='api_sign'),
     url(r'^api/checkin$', 'sideloader.views.api_checkin', name='api_checkin'),
+    url(r'^api/enc/(?P<server>[\w.-]+)$', 'sideloader.views.api_enc', name='api_enc'),
 
     # Authentication
     url(r'^accounts/login/$', 'django.contrib.auth.views.login', {'template_name': 'login.html'}),

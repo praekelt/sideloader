@@ -3,6 +3,7 @@ import uuid
 import urlparse
 import json
 import hashlib, hmac, base64
+import yaml
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -162,6 +163,136 @@ def release_edit(request, id):
     return render(request, 'releases/create_edit.html', {
         'form': form, 
         'release': release,
+        'projects': getProjects(request)
+    })
+
+@login_required
+def module_index(request):
+    if not request.user.is_superuser:
+        return redirect('home')
+
+    modules = models.ModuleManifest.objects.all()
+
+    return render(request, 'modules/index.html', {
+        'modules': modules,
+        'projects': getProjects(request)
+    })
+
+@login_required
+def module_create(request):
+    if not request.user.is_superuser:
+        return redirect('home')
+
+    if request.method == "POST":
+        form = forms.ModuleForm(request.POST)
+
+        if form.is_valid():
+            module = form.save(commit=False)
+            module.save()
+
+            return redirect('module_index')
+
+    else:
+        form = forms.ModuleForm()
+
+    return render(request, 'modules/create_edit.html', {
+        'form': form,
+        'projects': getProjects(request)
+    })
+
+@login_required
+def module_edit(request, id):
+    if not request.user.is_superuser:
+        return redirect('home')
+
+    module = models.ModuleManifest.objects.get(id=id)
+
+    if request.method == "POST":
+        form = forms.ModuleForm(request.POST, instance=module)
+
+        if form.is_valid():
+            module = form.save(commit=False)
+            module.save()
+
+            return redirect('module_index')
+
+    else:
+        form = forms.ModuleForm(instance=module)
+
+    return render(request, 'modules/create_edit.html', {
+        'form': form,
+        'projects': getProjects(request)
+    })
+
+@login_required
+def module_scheme(request, id):
+    module = models.ModuleManifest.objects.get(id=id)
+
+    return HttpResponse(module.structure,
+        content_type='application/json')
+
+@login_required
+def manifest_view(request, id):
+    release = models.ReleaseFlow.objects.get(id=id)
+    manifests = release.servermanifest_set.all()
+
+    return render(request, 'modules/manifest_view.html', {
+        'projects': getProjects(request),
+        'manifests': manifests,
+        'project': release.project,
+        'release': release
+    })
+
+@login_required
+def manifest_delete(request, id):
+    manifest = models.ServerManifest.objects.get(id=id)
+    release = manifest.release
+
+    manifest.delete()
+
+    return redirect('manifest_view', id=release.id)
+
+@login_required
+def manifest_add(request, id):
+    release = models.ReleaseFlow.objects.get(id=id)
+
+    if request.method == "POST":
+        form = forms.ManifestForm(request.POST)
+
+        if form.is_valid():
+            manifest = form.save(commit=False)
+            manifest.release = release
+            manifest.save()
+
+            return redirect('manifest_view', id=release.id)
+
+    else:
+        form = forms.ManifestForm()
+
+    return render(request, 'modules/manifest_edit.html', {
+        'form': form,
+        'release': release,
+        'projects': getProjects(request),
+        'project': release.project
+    })
+
+@login_required
+def manifest_edit(request, id):
+    manifest = models.ServerManifest.objects.get(id=id)
+
+    if request.method == "POST":
+        form = forms.ManifestForm(request.POST, instance=manifest)
+
+        if form.is_valid():
+            manifest = form.save(commit=False)
+            manifest.save()
+
+            return redirect('manifest_view', id=manifest.release.id)
+    else:
+        form = forms.ManifestForm(instance=manifest)
+
+    return render(request, 'modules/manifest_edit.html', {
+        'form': form,
         'projects': getProjects(request)
     })
 
@@ -544,7 +675,63 @@ def api_checkin(request):
 
             server.save()
 
+            return HttpResponse(json.dumps({}), 
+                content_type='application/json')
+
     return HttpResponse(
             json.dumps({"error": "Not authorized"}), 
             content_type='application/json'
         )
+
+@csrf_exempt
+def api_enc(request, server):
+    # Puppet ENC
+    if verifyHMAC(request):
+        # Build our ENC dict
+        try:
+            server = models.Server.objects.get(name=server)
+        except:
+            server = None
+
+        if server:
+            releases = [target.release for target in server.target_set.all()]
+
+            cdict = {}
+            for release in releases:
+                for manifest in release.servermanifest_set.all():
+                    key = manifest.module.key
+                    value = json.loads(manifest.value)
+
+                    if isinstance(value, list):
+                        if key in cdict:
+                            cdict[key].extend(value)
+                        else:
+                            cdict[key] = value
+
+                    if isinstance(value, dict):
+                        for k, v in value.items():
+                            if key in cdict:
+                                cdict[key][k] = v
+                            else:
+                                cdict[key] = {k: v}
+
+            node = {
+                'classes':{
+                    'firewall':{},
+                    'sideloader':{}
+                },
+                'parameters': cdict
+            }
+        else:
+            node = {}
+
+        print node
+
+        return HttpResponse(yaml.safe_dump(node),
+            content_type='application/yaml')
+
+    return HttpResponse(
+            json.dumps({"error": "Not authorized"}), 
+            content_type='application/json'
+        )
+

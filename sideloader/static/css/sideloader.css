@@ -154,3 +154,7 @@ table.table thead .sorting_desc_disabled { background: url('/static/images/sort_
     -moz-border-radius:6px 0 6px 6px;
     border-radius:6px 0 6px 6px;
 }
+
+.editor-block{
+    margin-left: 32px;
+}
