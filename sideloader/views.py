@@ -725,8 +725,6 @@ def api_enc(request, server):
         else:
             node = {}
 
-        print node
-
         return HttpResponse(yaml.safe_dump(node),
             content_type='application/yaml')
 

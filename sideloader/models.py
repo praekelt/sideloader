@@ -31,6 +31,8 @@ class Project(models.Model):
     release_stream = models.ForeignKey(ReleaseStream, null=True)
     idhash = models.CharField(max_length=48)
     allowed_users = models.ManyToManyField(User, blank=True)
+    notifications = models.BooleanField(default=True)
+    slack_channel = models.CharField(max_length=255, default='', blank=True)
 
 class ReleaseFlow(models.Model):
     name = models.CharField(max_length=255)
