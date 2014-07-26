@@ -45,6 +45,12 @@ class ReleaseFlow(models.Model):
 
     auto_release = models.BooleanField(default=False)
 
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
+
     def email_list(self):
         if not '@' in self.signoff_list:
             return []
@@ -94,11 +100,23 @@ class ModuleManifest(models.Model):
     key = models.CharField(max_length=255)
     structure = models.TextField()
 
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
+
 class ServerManifest(models.Model):
     module = models.ForeignKey(ModuleManifest)
     value = models.TextField()
 
     release = models.ForeignKey(ReleaseFlow)
+
+    def __unicode__(self):
+        return self.module.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
 
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)

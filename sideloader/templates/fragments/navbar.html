@@ -5,6 +5,7 @@
     {% if user.is_superuser %}
     <li {% if active == "releases" %}class="active"{% endif %}><a href="{% url 'release_index' %}">Release streams</a></li>
     <li {% if active == "servers" %}class="active"{% endif %}><a href="{% url 'server_index' %}">Servers</a></li>
+    <li {% if active == "modules" %}class="active"{% endif %}><a href="{% url 'module_index' %}">Modules</a></li>
     {% endif %}
     <li {% if active == "help" %}class="active"{% endif %}><a href="{% url 'help_index' %}">Help</a></li>
   </ul>
