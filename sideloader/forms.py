@@ -68,7 +68,7 @@ class FlowForm(BaseModelForm):
     stream_mode = forms.ChoiceField(
         label='Release mode',
         widget=forms.RadioSelect,
-        choices=((0, 'Stream',), (1, 'Server')))
+        choices=((0, 'Stream',), (1, 'Server'), (2, 'Both')))
 
     class Meta:
         exclude = ('project',)

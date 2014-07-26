@@ -48,9 +48,13 @@
                 $("#div_id_stream").hide();
                 $("#div_id_targets").show();
             }
-            else {
+            else if (mode==0){
                 $("#div_id_stream").show();
                 $("#div_id_targets").hide();
+            }
+            else if (mode==2){
+                $("#div_id_stream").show();
+                $("#div_id_targets").show();
             }
         }
 

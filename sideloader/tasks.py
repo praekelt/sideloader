@@ -185,6 +185,21 @@ def pushTargets(release, flow):
     release.waiting = False
     release.save()
 
+def steamRelease(release):
+    sendNotification.delay('%s - Pushing build %s to %s stream' % (
+        release.flow.project.name,
+        release.build.build_file,
+        release.flow.stream.name
+    ))
+    # Stream release
+    push_cmd = release.flow.stream.push_command
+    os.system(push_cmd % os.path.join(
+        '/workspace/packages/', release.build.build_file))
+
+    release.lock = False
+    release.waiting = False
+    release.save()
+
 @task()
 def runRelease(release):
     if release.lock:
@@ -210,20 +225,14 @@ def runRelease(release):
 
             # Release the build
             if flow.stream_mode == 0:
-                sendNotification.delay('%s - Pushing build %s to %s stream' % (
-                    release.flow.project.name,
-                    release.build.build_file,
-                    release.flow.stream.name
-                ))
-                # Stream release
-                push_cmd = release.flow.stream.push_command
-                os.system(push_cmd % os.path.join(
-                    '/workspace/packages/', release.build.build_file))
-
-                release.lock = False
-                release.waiting = False
-                release.save()
+                # Stream only
+                streamRelease(release)
+            elif flow.stream_mode == 2:
+                # Stream and targets
+                streamRelease(release)
+                pushTargets.delay(release, flow)
             else:
+                # Target only
                 pushTargets.delay(release, flow)
 
 @task()
