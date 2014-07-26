@@ -14,12 +14,18 @@ from celery import task
 from sideloader import models, specter, slack
 
 @task()
-def sendNotification(message):
-    if settings.SLACK_TOKEN:
-        sc = slack.SlackClient(settings.SLACK_HOST,
-                settings.SLACK_TOKEN, settings.SLACK_CHANNEL)
+def sendNotification(message, project):
+    if project.notifications:
+        if settings.SLACK_TOKEN:
+            if project.slack_channel:
+                channel = project.slack_channel
+            else:
+                channel=settings.SLACK_CHANNEL
 
-        sc.message(message)
+            sc = slack.SlackClient(settings.SLACK_HOST,
+                    settings.SLACK_TOKEN, channel)
+
+            sc.message(project.name + ": " + message)
 
 @task()
 def sendEmail(to, content, subject):
@@ -77,22 +83,14 @@ def doRelease(build, flow, scheduled=None):
     release.save()
 
     if scheduled:
-        sendNotification.delay('%s - Deployment scheduled for build %s at %s UTC to %s' % (
-            release.flow.project.name,
+        sendNotification.delay('Deployment scheduled for build %s at %s UTC to %s' % (
             release.build.build_file,
             release.scheduled,
             release.flow.name
-        ))
+        ), release.flow.project)
 
         for name, email in settings.ADMINS:
             sendScheduleNotification.delay(email, release)
-
-    else:
-        sendNotification.delay('%s - Deployment queued for build %s to %s' % (
-            release.flow.project.name,
-            release.build.build_file,
-            release.flow.name
-        ))
 
     if flow.require_signoff:
         # Create a signoff release
@@ -118,11 +116,10 @@ def pushTargets(release, flow):
 
     for target in targets:
 
-        sendNotification.delay('%s - Deployment started for build %s -> %s' % (
-            target.release.project.name,
+        sendNotification.delay('Deployment started for build %s -> %s' % (
             release.build.build_file,
             target.server.name
-        ))
+        ), release.flow.project)
 
         target.deploy_state=1
         target.save()
@@ -157,11 +154,10 @@ def pushTargets(release, flow):
                         stop, result['stdout'], result['stderr']
                     ])
                 target.save()
-                sendNotification.delay('%s - Deployment of build %s to %s failed!' % (
-                    target.release.project.name,
+                sendNotification.delay('Deployment of build %s to %s failed!' % (
                     release.build.build_file,
                     target.server.name
-                ))
+                ), release.flow.project)
             else:
                 puppet = sc.get_puppet_run()['stdout']
                 start = sc.get_all_start()['stdout']
@@ -171,22 +167,34 @@ def pushTargets(release, flow):
                 ])
                 target.current_build = release.build
                 target.save()
-                sendNotification.delay('%s - Deployment of build %s to %s complete' % (
-                    target.release.project.name,
+                sendNotification.delay('Deployment of build %s to %s complete' % (
                     release.build.build_file,
                     target.server.name
-                ))
+                ), release.flow.project)
 
         except Exception, e:
             target.log = str(e)
             target.deploy_state=3
             target.save()
             
-            sendNotification.delay('%s - Deployment of build %s to %s failed!' % (
-                target.release.project.name,
+            sendNotification.delay('Deployment of build %s to %s failed!' % (
                 release.build.build_file,
                 target.server.name
-            ))
+            ), release.flow.project)
+
+    release.lock = False
+    release.waiting = False
+    release.save()
+
+def streamRelease(release):
+    sendNotification.delay('Pushing build %s to %s stream' % (
+        release.build.build_file,
+        release.flow.stream.name
+    ), release.flow.project)
+    # Stream release
+    push_cmd = release.flow.stream.push_command
+    os.system(push_cmd % os.path.join(
+        '/workspace/packages/', release.build.build_file))
 
     release.lock = False
     release.waiting = False
@@ -217,20 +225,14 @@ def runRelease(release):
 
             # Release the build
             if flow.stream_mode == 0:
-                sendNotification.delay('%s - Pushing build %s to %s stream' % (
-                    release.flow.project.name,
-                    release.build.build_file,
-                    release.flow.stream.name
-                ))
-                # Stream release
-                push_cmd = release.flow.stream.push_command
-                os.system(push_cmd % os.path.join(
-                    '/workspace/packages/', release.build.build_file))
-
-                release.lock = False
-                release.waiting = False
-                release.save()
+                # Stream only
+                streamRelease(release)
+            elif flow.stream_mode == 2:
+                # Stream and targets
+                streamRelease(release)
+                pushTargets.delay(release, flow)
             else:
+                # Target only
                 pushTargets.delay(release, flow)
 
 @task()
@@ -260,8 +262,10 @@ def build(build, giturl, branch):
 
     build.save()
 
-    sendNotification.delay('%s - Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
-        build.project.name, settings.SIDELOADER_DOMAIN, build.id, build.id, branch))
+    sendNotification.delay(
+        'Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
+            settings.SIDELOADER_DOMAIN, build.id, build.id, branch
+        ), build.project)
 
     args = [buildpack, '--branch', branch]
 
@@ -286,12 +290,14 @@ def build(build, giturl, branch):
 
     if builder.returncode != 0:
         build.state = 2
-        sendNotification.delay('%s - Build <http://%s/projects/build/view/%s|#%s> failed' % (
-            build.project.name, settings.SIDELOADER_DOMAIN, build.id, build.id))
+        sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> failed' % (
+            settings.SIDELOADER_DOMAIN, build.id, build.id
+        ), build.project)
     else:
         build.state = 1
-        sendNotification.delay('%s - Build <http://%s/projects/build/view/%s|#%s> successful' % (
-            build.project.name, settings.SIDELOADER_DOMAIN, build.id, build.id))
+        sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> successful' % (
+            settings.SIDELOADER_DOMAIN, build.id, build.id
+        ), build.project)
         if not os.path.exists(packages):
             os.makedirs(packages)
 

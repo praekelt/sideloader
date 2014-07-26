@@ -18,6 +18,15 @@ class BaseForm(forms.Form):
     helper.field_class = 'col-lg-8'
     helper.add_input(Submit('submit', 'Submit'))
 
+class ModuleForm(BaseModelForm):
+    class Meta:
+        model = models.ModuleManifest
+
+class ManifestForm(BaseModelForm):
+    class Meta:
+        model = models.ServerManifest
+        exclude = ('release',)
+
 class ReleaseForm(BaseModelForm):
     class Meta:
         model = models.ReleaseStream
@@ -59,7 +68,7 @@ class FlowForm(BaseModelForm):
     stream_mode = forms.ChoiceField(
         label='Release mode',
         widget=forms.RadioSelect,
-        choices=((0, 'Stream',), (1, 'Server')))
+        choices=((0, 'Stream',), (1, 'Server'), (2, 'Both')))
 
     class Meta:
         exclude = ('project',)

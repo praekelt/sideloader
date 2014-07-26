@@ -1,0 +1,40 @@
+{% extends "fragments/default.html" %}
+{% load crispy_forms_tags %}
+{% block navbar %}
+{% include "fragments/navbar.html" with active="modules" %}
+{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" type="text/css" href="/static/css/jsoneditor.min.css">
+    <script type="text/javascript" src="/static/js/jsoneditor.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="col-lg-9">
+    <h4 style="margin-bottom:10px">{% if module %}Edit Module{% else %}Create Module{% endif %}</h4>
+    {% crispy form %}
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script type="text/javascript">
+  $(function() {
+    // create the editor
+    var container = $("#div_id_structure div")[0];
+    var editor = new JSONEditor(container, {
+        change: function(){
+            $("#id_structure").val(JSON.stringify(editor.get(), undefined, 2));
+        }
+    });
+
+    // set json
+    var json = $("#id_structure").val();
+    editor.setText(json);
+
+    $("#id_structure").on("change keyup paste", function(){
+        editor.setText($(this).val());
+    });
+  });
+</script> 
+{% endblock %}

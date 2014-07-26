@@ -9,6 +9,11 @@
 </div>
 {% endblock %}
 
+{% block head %}
+    <link rel="stylesheet" type="text/css" href="/static/css/jsoneditor.min.css">
+    <script type="text/javascript" src="/static/js/jsoneditor.min.js"></script>
+{% endblock %}
+
 {% block content %}
 
 <div class="row-fluid">
@@ -87,16 +92,45 @@ $manage collectstatic --noinput</pre>
       List of apt package dependencies. This should include everything required to use the package, for example nginx or system libraries required for PIL or Postgresql. Do not install any database servers as they may not necessarily be on the same physical host as the application.
       </p>
     </section>
+
     <section id="sideloader">
       <div class="page-header"><h1>3. Sideloader interface</h1></div>
-      <p>The Sideloader interface provides a workflow for managing who can execute builds, an API for remotely triggering builds on git commit, and release streams to target specific platforms for the installation of the package (handled by Puppet).</p>
-      <p>
+      <p>The Sideloader web interface provides a workflow for managing who can execute builds, an API for remotely triggering builds on git commit, and release streams to target specific platforms for the installation of the package (handled by Puppet), and targeted releases deployed to servers immediately via the Specter agent.</p>
+
+      <p><h3>Puppet configuration</h3>
+      Sideloader provides a Puppet external node classifier allowing configurations to be built from Module definitions which are merged into a server manifest per project. Since servers can belong to multiple projects it's important to make sure these configurations do not overlap, it will not cause a duplicate resource but instead result in a random one being chosen.
+      <br/><br/>
+      Module configurations consist of a JSON template which is provided when modules are added to a release workflow. The JSON manifests are combined by the key name for the module and serialised into YAML for Puppet to use as a node variable later with the same name as the modules key.<br/><br/>
+      For example consider a Puppet module as follows:
+      <pre>class packages {
+  if $server_packages {
+    create_resources(package, $server_packages)
+  }
+}</pre>
+      
+      A corresponding module provides a JSON structure as:
+      <pre>{
+    "PACKAGE_NAME": {"ensure":"present|absent"}
+}</pre>
+      This template will be presented to the user adding a module to a release workflow and they will need to replace the relevant fields as follows
+      <div id="jsonexample"/>
+      </p>
+
     </section>
   </div>
+{% endblock %}
+
+{% block script %}
 <script>
-    (function() {
+    $(function() {
         $('#sidebar').scrollspy()
+
+        // create the editor
+        var container = $("#jsonexample")[0];
+        var editor = new JSONEditor(container);
+
+        // set json
+        editor.set({"PACKAGE_NAME": {"ensure":"present|absent"}});
     })();
 </script>
-
 {% endblock %}

@@ -11,6 +11,7 @@ class Server(models.Model):
     def __str__(self):
         return self.__unicode__().encode('utf-8', 'replace')
 
+
 class ReleaseStream(models.Model):
     name = models.CharField(max_length=255)
     push_command = models.CharField(max_length=255)
@@ -30,6 +31,8 @@ class Project(models.Model):
     release_stream = models.ForeignKey(ReleaseStream, null=True)
     idhash = models.CharField(max_length=48)
     allowed_users = models.ManyToManyField(User, blank=True)
+    notifications = models.BooleanField(default=True)
+    slack_channel = models.CharField(max_length=255, default='', blank=True)
 
 class ReleaseFlow(models.Model):
     name = models.CharField(max_length=255)
@@ -43,6 +46,12 @@ class ReleaseFlow(models.Model):
     quorum = models.IntegerField(default=0)
 
     auto_release = models.BooleanField(default=False)
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
 
     def email_list(self):
         if not '@' in self.signoff_list:
@@ -87,6 +96,29 @@ class Target(models.Model):
 
     current_build = models.ForeignKey(Build, null=True, blank=True)
     log = models.TextField(default="")
+
+class ModuleManifest(models.Model):
+    name = models.CharField(max_length=255)
+    key = models.CharField(max_length=255)
+    structure = models.TextField()
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
+
+class ServerManifest(models.Model):
+    module = models.ForeignKey(ModuleManifest)
+    value = models.TextField()
+
+    release = models.ForeignKey(ReleaseFlow)
+
+    def __unicode__(self):
+        return self.module.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
 
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)

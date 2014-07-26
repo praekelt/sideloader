@@ -1,0 +1,48 @@
+#!/usr/bin/python
+import sys, time, yaml, hmac, base64, requests, hashlib
+
+#########################
+# Sideloader Puppet ENC #
+#########################
+#
+# Add the following to Puppet config:
+# [master]
+#   node_terminus = exec
+#   external_nodes = /path/to/sideloader-enc
+#
+
+# Sideloader/Specter authcode
+AUTHCODE = 'REPLACE ME'
+# Sideloader/Specter key
+KEY = 'REPLACE ME'
+# Sideloader server URL
+SERVER_URL = 'http://REPLACE.ME'
+
+# Log: Some file descriptor
+LOG = open('/var/log/sideloader-enc.log', 'at')
+
+
+def writeLog(message):
+    LOG.write('[%s] %s\n' % (time.ctime(), message))
+
+if __name__ == "__main__":
+
+    host = sys.argv[1]
+
+    writeLog('Building manifest for %s' % host)
+
+    conf = {}
+    sign = [AUTHCODE, 'GET', '/api/enc/%s' % host]
+    mysig = hmac.new(key=KEY, msg='\n'.join(sign),
+                digestmod=hashlib.sha1).digest()
+
+    headers = {
+        'content-type': 'application/yaml',
+        'sig': base64.b64encode(mysig),
+        'authorization': AUTHCODE
+    }
+
+    r = requests.get('%s/api/enc/%s' % (SERVER_URL, host),
+        headers=headers)
+    writeLog('Manifest retrieved for %s: %s' % (host, repr(r.text)))
+    print r.text
