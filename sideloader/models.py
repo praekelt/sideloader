@@ -1,9 +1,20 @@
 import time
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class Server(models.Model):
     name = models.CharField(max_length=255)
+    last_checkin = models.DateTimeField(auto_now_add=True)
+    last_puppet_run = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=255, default='', blank=True)
+    change = models.BooleanField(default=True)
+    specter_status = models.CharField(max_length=255, default='', blank=True)
+
+    def age(self):
+        """Returns seconds since last checkin"""
+        now = timezone.now()
+        return int((now - self.last_checkin).total_seconds())
 
     def __unicode__(self):
         return self.name

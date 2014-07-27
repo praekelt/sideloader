@@ -121,6 +121,8 @@ def pushTargets(release, flow):
             target.server.name
         ), release.flow.project)
 
+        server = target.server
+
         target.deploy_state=1
         target.save()
 
@@ -172,15 +174,21 @@ def pushTargets(release, flow):
                     target.server.name
                 ), release.flow.project)
 
+            server.specter_status = "Reachable"
+
         except Exception, e:
             target.log = str(e)
             target.deploy_state=3
             target.save()
-            
+
+            server.specter_status = str(e)
+           
             sendNotification.delay('Deployment of build %s to %s failed!' % (
                 release.build.build_file,
                 target.server.name
             ), release.flow.project)
+
+        server.save()
 
     release.lock = False
     release.waiting = False

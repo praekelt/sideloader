@@ -4,23 +4,24 @@
 {% endblock %}
 
 {% block content %}
-<div class="col-lg-5">
     <h4>Servers</h4>
     <p>
         {% if servers %}
-        <table class="table table-hover table-bordered table-condensed">
-            <tbody>
-                {% for server in servers %}
-                <tr>
-                    <td>{{ server.name }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="row">
+            {% for server in servers %}
+            <div class="col-md-3 col-sm-6 col-xs-12 col-lg-3">
+                <div class="panel {% if server.age <= 300 %}panel-success{% elif server.age > 600 %}panel-danger{% else %}panel-warning{% endif %}">
+                    <div class="panel-heading server-heading">{{server.name}}</div>
+                    <div class="panel-body server-body">
+                    <strong>Last seen:</strong> {{server.last_checkin|timesince}} ago<br/>
+                    <strong>Manifest status:</strong> {{server.status}}<br/>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
         {% else %}
         <br/><br/>
         No servers configured
         {% endif %}
     </p>
-</div>
 {% endblock %}
