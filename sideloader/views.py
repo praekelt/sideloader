@@ -234,6 +234,12 @@ def module_scheme(request, id):
 @login_required
 def manifest_view(request, id):
     release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
+
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     manifests = release.servermanifest_set.all()
 
     return render(request, 'modules/manifest_view.html', {
@@ -247,7 +253,12 @@ def manifest_view(request, id):
 def manifest_delete(request, id):
     manifest = models.ServerManifest.objects.get(id=id)
     release = manifest.release
+    project = release.project
 
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     manifest.delete()
 
     return redirect('manifest_view', id=release.id)
@@ -255,7 +266,12 @@ def manifest_delete(request, id):
 @login_required
 def manifest_add(request, id):
     release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
 
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     if request.method == "POST":
         form = forms.ManifestForm(request.POST)
 
@@ -279,7 +295,12 @@ def manifest_add(request, id):
 @login_required
 def manifest_edit(request, id):
     manifest = models.ServerManifest.objects.get(id=id)
+    project = manifest.release.project
 
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     if request.method == "POST":
         form = forms.ManifestForm(request.POST, instance=manifest)
 
@@ -293,7 +314,8 @@ def manifest_edit(request, id):
 
     return render(request, 'modules/manifest_edit.html', {
         'form': form,
-        'projects': getProjects(request)
+        'projects': getProjects(request),
+        'project': project
     })
 
 @login_required
@@ -375,28 +397,35 @@ def workflow_edit(request, id):
 @login_required
 def release_delete(request, id):
     release = models.Release.objects.get(id=id)
-    project_id = release.flow.project.id
-    release.delete()
+    project = release.flow.project
+    if (request.user.is_superuser) or (
+        project in request.user.project_set.all()):
+        release.delete()
 
-    return redirect('projects_view', id=project_id)
+    return redirect('projects_view', id=project.id)
 
 @login_required
 def workflow_delete(request, id):
     flow = models.ReleaseFlow.objects.get(id=id)
-    project_id = flow.project.id
-    flow.delete()
+    project = flow.project
+    if (request.user.is_superuser) or (
+        project in request.user.project_set.all()):
+        flow.delete()
 
-    return redirect('projects_view', id=project_id)
+    return redirect('projects_view', id=project.id)
 
 @login_required
 def workflow_push(request, flow, build):
     flow = models.ReleaseFlow.objects.get(id=flow)
+    project = flow.project
     build = models.Build.objects.get(id=build)
 
-    tasks.doRelease.delay(build, flow)
+    if (request.user.is_superuser) or (
+        project in request.user.project_set.all()):
+        
+        tasks.doRelease.delay(build, flow)
 
-    project_id = flow.project.id
-    return redirect('projects_view', id=project_id)
+    return redirect('projects_view', id=project.id)
 
 @login_required
 def workflow_schedule(request, flow, build):
