@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 import uuid
 import urlparse
 import json
@@ -89,7 +89,7 @@ def accounts_profile(request):
 
 @login_required
 def server_index(request):
-    servers = models.Server.objects.all()
+    servers = models.Server.objects.all().order_by('last_checkin')
     return render(request, "servers/index.html", {
         'servers': servers,
         'projects': getProjects(request)
@@ -234,6 +234,12 @@ def module_scheme(request, id):
 @login_required
 def manifest_view(request, id):
     release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
+
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     manifests = release.servermanifest_set.all()
 
     return render(request, 'modules/manifest_view.html', {
@@ -247,7 +253,12 @@ def manifest_view(request, id):
 def manifest_delete(request, id):
     manifest = models.ServerManifest.objects.get(id=id)
     release = manifest.release
+    project = release.project
 
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     manifest.delete()
 
     return redirect('manifest_view', id=release.id)
@@ -255,7 +266,12 @@ def manifest_delete(request, id):
 @login_required
 def manifest_add(request, id):
     release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
 
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     if request.method == "POST":
         form = forms.ManifestForm(request.POST)
 
@@ -279,7 +295,12 @@ def manifest_add(request, id):
 @login_required
 def manifest_edit(request, id):
     manifest = models.ServerManifest.objects.get(id=id)
+    project = manifest.release.project
 
+    if not((request.user.is_superuser) or (
+        project in request.user.project_set.all())):
+        return redirect('home')
+        
     if request.method == "POST":
         form = forms.ManifestForm(request.POST, instance=manifest)
 
@@ -293,7 +314,8 @@ def manifest_edit(request, id):
 
     return render(request, 'modules/manifest_edit.html', {
         'form': form,
-        'projects': getProjects(request)
+        'projects': getProjects(request),
+        'project': project
     })
 
 @login_required
@@ -375,28 +397,35 @@ def workflow_edit(request, id):
 @login_required
 def release_delete(request, id):
     release = models.Release.objects.get(id=id)
-    project_id = release.flow.project.id
-    release.delete()
+    project = release.flow.project
+    if (request.user.is_superuser) or (
+        project in request.user.project_set.all()):
+        release.delete()
 
-    return redirect('projects_view', id=project_id)
+    return redirect('projects_view', id=project.id)
 
 @login_required
 def workflow_delete(request, id):
     flow = models.ReleaseFlow.objects.get(id=id)
-    project_id = flow.project.id
-    flow.delete()
+    project = flow.project
+    if (request.user.is_superuser) or (
+        project in request.user.project_set.all()):
+        flow.delete()
 
-    return redirect('projects_view', id=project_id)
+    return redirect('projects_view', id=project.id)
 
 @login_required
 def workflow_push(request, flow, build):
     flow = models.ReleaseFlow.objects.get(id=flow)
+    project = flow.project
     build = models.Build.objects.get(id=build)
 
-    tasks.doRelease.delay(build, flow)
+    if (request.user.is_superuser) or (
+        project in request.user.project_set.all()):
+        
+        tasks.doRelease.delay(build, flow)
 
-    project_id = flow.project.id
-    return redirect('projects_view', id=project_id)
+    return redirect('projects_view', id=project.id)
 
 @login_required
 def workflow_schedule(request, flow, build):
@@ -673,6 +702,8 @@ def api_checkin(request):
             except models.Server.DoesNotExist:
                 server = models.Server.objects.create(name=data['hostname'])
 
+            server.last_checkin = datetime.now()
+
             server.save()
 
             return HttpResponse(json.dumps({}), 
@@ -695,12 +726,26 @@ def api_enc(request, server):
 
         if server:
             releases = [target.release for target in server.target_set.all()]
+            server.last_checkin = datetime.now()
+            server.last_puppet_run = datetime.now()
+            server.change = False
+            server.status = "Success"
 
             cdict = {}
             for release in releases:
                 for manifest in release.servermanifest_set.all():
                     key = manifest.module.key
-                    value = json.loads(manifest.value)
+                    try:
+                        value = json.loads(manifest.value)
+                    except Exception, e:
+                        server.status = "Validation error in manifest "
+                        server.status += "%s -> %s -> %s: %s" % (
+                            release.project.name,
+                            release.name,
+                            manifest.module.name,
+                            e
+                        )
+                        continue 
 
                     if isinstance(value, list):
                         if key in cdict:
@@ -714,6 +759,8 @@ def api_enc(request, server):
                                 cdict[key][k] = v
                             else:
                                 cdict[key] = {k: v}
+
+            server.save()
 
             node = {
                 'classes':{
