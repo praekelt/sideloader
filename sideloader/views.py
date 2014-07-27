@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 import uuid
 import urlparse
 import json
@@ -89,7 +89,7 @@ def accounts_profile(request):
 
 @login_required
 def server_index(request):
-    servers = models.Server.objects.all()
+    servers = models.Server.objects.all().order_by('last_checkin')
     return render(request, "servers/index.html", {
         'servers': servers,
         'projects': getProjects(request)
@@ -702,6 +702,8 @@ def api_checkin(request):
             except models.Server.DoesNotExist:
                 server = models.Server.objects.create(name=data['hostname'])
 
+            server.last_checkin = datetime.now()
+
             server.save()
 
             return HttpResponse(json.dumps({}), 
@@ -724,12 +726,26 @@ def api_enc(request, server):
 
         if server:
             releases = [target.release for target in server.target_set.all()]
+            server.last_checkin = datetime.now()
+            server.last_puppet_run = datetime.now()
+            server.change = False
+            server.status = "Success"
 
             cdict = {}
             for release in releases:
                 for manifest in release.servermanifest_set.all():
                     key = manifest.module.key
-                    value = json.loads(manifest.value)
+                    try:
+                        value = json.loads(manifest.value)
+                    except Exception, e:
+                        server.status = "Validation error in manifest "
+                        server.status += "%s -> %s -> %s: %s" % (
+                            release.project.name,
+                            release.name,
+                            manifest.module.name,
+                            e
+                        )
+                        continue 
 
                     if isinstance(value, list):
                         if key in cdict:
@@ -743,6 +759,8 @@ def api_enc(request, server):
                                 cdict[key][k] = v
                             else:
                                 cdict[key] = {k: v}
+
+            server.save()
 
             node = {
                 'classes':{
