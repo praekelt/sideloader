@@ -763,10 +763,6 @@ def api_enc(request, server):
             server.save()
 
             node = {
-                'classes':{
-                    'firewall':{},
-                    'sideloader':{}
-                },
                 'parameters': cdict
             }
         else:
