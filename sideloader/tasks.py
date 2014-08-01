@@ -260,12 +260,22 @@ def build(build):
 
     project = build.project
     giturl = project.github_url
+    chunks = giturl.split(':')[1].split('/')
+    repo = chunks[-1][:-4]
+
     branch = project.branch
-    build_num = project.build_num + 1
+
+    # Get a build number
+    try:
+        buildnums = models.BuildNumbers.objects.get(package=repo)
+    except models.BuildNumbers.DoesNotExist:
+        buildnums = models.BuildNumbers.objects.create(package=repo)
+
+    build_num = buildnums.build_num + 1
 
     # Increment the project build number
-    project.build_num += 1
-    project.save()
+    buildnums.build_num += 1
+    buildnums.save()
 
     id = project.idhash
 
@@ -273,8 +283,6 @@ def build(build):
     buildpack = os.path.join(local, 'bin/build_package')
 
     # Figure out some directory paths
-    chunks = giturl.split(':')[1].split('/')
-    repo = chunks[-1][:-4]
     workspace = os.path.join('/workspace', id)
     package = os.path.join(workspace, 'package')
     packages = '/workspace/packages'
