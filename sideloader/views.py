@@ -611,7 +611,7 @@ def projects_build(request, id):
             return redirect('build_view', id=current_builds[0].id)
         else:
             build = models.Build.objects.create(project=project, state=0)
-            task = tasks.build.delay(build, project.github_url, project.branch)
+            task = tasks.build.delay(build)
             build.task_id = task.task_id
             build.save()
             return redirect('build_view', id=build.id)
@@ -665,7 +665,7 @@ def api_build(request, hash):
         current_builds = models.Build.objects.filter(project=project, state=0)
         if not current_builds:
             build = models.Build.objects.create(project=project, state=0)
-            task = tasks.build.delay(build, project.github_url, project.branch)
+            task = tasks.build.delay(build)
             build.task_id = task.task_id
             build.save()
 
