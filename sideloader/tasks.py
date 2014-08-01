@@ -253,15 +253,29 @@ def checkReleases():
         runRelease(release)
 
 @task()
-def build(build, giturl, branch):
-    # Use subprocess to execute a build, update the db with results
+def build(build):
+    """
+    Use subprocess to execute a build, update the db with results along the way
+    """
+
+    project = build.project
+    giturl = project.github_url
+    branch = project.branch
+    build_num = project.build_num + 1
+
+    # Increment the project build number
+    project.build_num += 1
+    project.save()
+
+    id = project.idhash
+
     local = os.path.dirname(sys.argv[0])
     buildpack = os.path.join(local, 'bin/build_package')
 
     # Figure out some directory paths
     chunks = giturl.split(':')[1].split('/')
     repo = chunks[-1][:-4]
-    workspace = os.path.join('/workspace', repo)
+    workspace = os.path.join('/workspace', id)
     package = os.path.join(workspace, 'package')
     packages = '/workspace/packages'
 
@@ -275,7 +289,7 @@ def build(build, giturl, branch):
             settings.SIDELOADER_DOMAIN, build.id, build.id, branch
         ), build.project)
 
-    args = [buildpack, '--branch', branch]
+    args = [buildpack, '--branch', branch, '--build', str(build_num), '--id', id]
 
     if build.project.deploy_file:
         args.extend(['--deploy-file', build.project.deploy_file])
@@ -302,25 +316,34 @@ def build(build, giturl, branch):
             settings.SIDELOADER_DOMAIN, build.id, build.id
         ), build.project)
     else:
-        build.state = 1
-        sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> successful' % (
-            settings.SIDELOADER_DOMAIN, build.id, build.id
-        ), build.project)
         if not os.path.exists(packages):
             os.makedirs(packages)
 
         debs = [i for i in os.listdir(package) if i[-4:]=='.deb']
-        deb = debs[0]
-        build.build_file = deb
+        if not debs:
+            # We must have failed actually
+            build.state = 2
+            sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> failed' % (
+                settings.SIDELOADER_DOMAIN, build.id, build.id
+            ), build.project)
 
-        # Relocate the package to our archive
-        shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+        else:
+            build.state = 1
+            sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> successful' % (
+                settings.SIDELOADER_DOMAIN, build.id, build.id
+            ), build.project)
 
-        # Find any auto-release streams
-        flows = build.project.releaseflow_set.filter(auto_release=True)
-        if flows:
-            build.save()
-            for flow in flows:
-                doRelease.delay(build, flow)
+            deb = debs[0]
+            build.build_file = deb
+
+            # Relocate the package to our archive
+            shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+
+            # Find any auto-release streams
+            flows = build.project.releaseflow_set.filter(auto_release=True)
+            if flows:
+                build.save()
+                for flow in flows:
+                    doRelease.delay(build, flow)
 
     build.save()

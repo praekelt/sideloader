@@ -33,13 +33,23 @@ class Sideloader:
         if args.push:
             self.push_command = args.push
 
+        if args.build:
+            self.build_num = args.build
+        else:
+            self.build_num = None
+
+        if args.id:
+            ws = args.id
+        else:
+            ws = self.repo
+
         # Rip the github url apart
         chunks = self.githuburl.split(':')[1].split('/')
         self.repo = chunks[-1][:-4]
         self.org = chunks[-2]
 
         # It's all about the paths
-        self.workspace = os.path.join('/workspace', self.repo)
+        self.workspace = os.path.join('/workspace', ws)
         self.build = os.path.join(self.workspace, 'build')
         self.packages = '/workspace/packages'
 
@@ -69,17 +79,12 @@ class Sideloader:
 
         self.deploy_yam = {}
 
-        self.cachefile = os.path.join(os.getcwd(), 'build_cache')
-
-        if os.path.exists(self.cachefile):
-            self.build_cache = json.loads(open(self.cachefile).read())
-        else:
-            self.build_cache = {}
-
     def parseArgs(self):
         parser = argparse.ArgumentParser(description='Build a github repo')
         parser.add_argument("repo", help="Git repo", type=str)
         parser.add_argument("--branch", help="Git branch")
+        parser.add_argument("--build", help="Build version")
+        parser.add_argument("--id", help="Workspace ID")
         parser.add_argument("--deploy-file", help="Deploy YAML file (default .deploy.yaml)")
         parser.add_argument("--push", help="Push command")
         args = parser.parse_args()
@@ -90,23 +95,6 @@ class Sideloader:
     def log(self, s):
         sys.stdout.write("[%s] %s\n" % (time.ctime(), s))
         sys.stdout.flush()
-
-    def saveCache(self):
-        f = open(self.cachefile, 'wt')
-        f.write(
-            json.dumps(self.build_cache)
-        )
-        f.close()
-
-    def getBuildNumber(self):
-        if self.repo in self.build_cache:
-            build = int(self.build_cache[self.repo]) + 1
-        else:
-            build = 1
-
-        self.build_cache[self.repo] = build
-        return build
-
 
     def createWorkspace(self):
         if os.path.exists(self.workspace):
@@ -250,8 +238,7 @@ class Sideloader:
         os.chdir(package)
 
         # Figure out a build version or use the one in self.deploy_file
-        build_num = self.getBuildNumber()
-        version = self.deploy_yam.get('version', "0.%s" % build_num)
+        version = self.deploy_yam.get('version', "0.%s" % self.build_num)
 
         # Build a dependency list
         depends = ""
@@ -274,15 +261,16 @@ class Sideloader:
         name = self.deploy_yam.get('name', self.repo)
 
         self.log("Building .deb package")
-        os.system(
-            'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
-                name,
-                version,
-                postinstall,
-                depends,
-                user
-            )
+
+        fpm = 'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
+            name,
+            version,
+            postinstall,
+            depends,
+            user
         )
+
+        os.system(fpm)
 
         self.log("Signing package")
         # Sign the package, if we care
@@ -290,8 +278,6 @@ class Sideloader:
         if key:
             os.system('dpkg-sig -k %s --sign builder *.deb' % key)
 
-        # Save the cache at this point, because the packaging was successful
-        self.saveCache()
         self.log("Build completed successfully")
 
     def buildProject(self):
