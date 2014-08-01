@@ -45,6 +45,8 @@ class Project(models.Model):
     notifications = models.BooleanField(default=True)
     slack_channel = models.CharField(max_length=255, default='', blank=True)
 
+class BuildNumbers(models.Model):
+    package = models.CharField(max_length=255, unique=True)
     build_num = models.IntegerField(default=0)
 
 class ReleaseFlow(models.Model):

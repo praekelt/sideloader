@@ -8,15 +8,18 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Adding field 'Project.build_num'
-        db.add_column(u'sideloader_project', 'build_num',
-                      self.gf('django.db.models.fields.IntegerField')(default=0),
-                      keep_default=False)
+        # Adding model 'BuildNumbers'
+        db.create_table(u'sideloader_buildnumbers', (
+            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
+            ('package', self.gf('django.db.models.fields.CharField')(unique=True, max_length=255)),
+            ('build_num', self.gf('django.db.models.fields.IntegerField')(default=0)),
+        ))
+        db.send_create_signal(u'sideloader', ['BuildNumbers'])
 
 
     def backwards(self, orm):
-        # Deleting field 'Project.build_num'
-        db.delete_column(u'sideloader_project', 'build_num')
+        # Deleting model 'BuildNumbers'
+        db.delete_table(u'sideloader_buildnumbers')
 
 
     models = {
@@ -66,6 +69,12 @@ class Migration(SchemaMigration):
             'state': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'task_id': ('django.db.models.fields.CharField', [], {'default': "''", 'max_length': '255'})
         },
+        u'sideloader.buildnumbers': {
+            'Meta': {'object_name': 'BuildNumbers'},
+            'build_num': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
+            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+            'package': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '255'})
+        },
         u'sideloader.modulemanifest': {
             'Meta': {'object_name': 'ModuleManifest'},
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
@@ -77,7 +86,6 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'Project'},
             'allowed_users': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['auth.User']", 'symmetrical': 'False', 'blank': 'True'}),
             'branch': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
-            'build_num': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'created_by_user': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'ProjectCreatedBy'", 'to': u"orm['auth.User']"}),
             'deploy_file': ('django.db.models.fields.CharField', [], {'default': "'.deploy.yaml'", 'max_length': '255'}),
             'github_url': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
