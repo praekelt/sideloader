@@ -13,7 +13,7 @@ from django.conf import settings
 from celery import task
 from sideloader import models, specter, slack
 
-@task()
+@task(time_limit=10)
 def sendNotification(message, project):
     if project.notifications:
         if settings.SLACK_TOKEN:
