@@ -160,6 +160,9 @@ def pushTargets(release, flow):
                     release.build.build_file,
                     target.server.name
                 ), release.flow.project)
+
+                # Start services back up even on failure
+                start = sc.get_all_start()['stdout']
             else:
                 puppet = sc.get_puppet_run()['stdout']
                 start = sc.get_all_start()['stdout']
