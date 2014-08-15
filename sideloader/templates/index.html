@@ -24,11 +24,11 @@
                     <tr class="info">
                         <td width="180em">{{ build.build_time }}</td>
                         <td><a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a></td>
-                        <td width="50em">
+                        <td width="80em">
                         {% if build.project.id %}
                             <div class="btn-group btn-group-sm">
                                 <a class="btn btn-default" href="{% url 'build_cancel' id=build.id %}"><span class="glyphicon glyphicon-remove electric"></span></a>
-                                <a class="btnbtn-default" href="{% url 'build_view' id=build.id %}"><span class="glyphicon glyphicon-list electric"></span></a>
+                                <a class="btn btn-default" href="{% url 'build_view' id=build.id %}"><span class="glyphicon glyphicon-list electric"></span></a>
                             </div>
                         {% endif %}
                         </td>
