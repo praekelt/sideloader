@@ -27,7 +27,7 @@ def sendNotification(message, project):
 
             sc.message(project.name + ": " + message)
 
-@task()
+@task(time_limit=60)
 def sendEmail(to, content, subject):
     start = '<html><head></head><body style="font-family:arial,sans-serif;">'
     end = '</body></html>'
@@ -46,7 +46,7 @@ def sendEmail(to, content, subject):
     s.sendmail(msg['From'], msg['To'], msg.as_string())
     s.close()
 
-@task()
+@task(time_limit=60)
 def sendSignEmail(to, name, release, h):
     cont = 'A build release has been requested for "%s" to release stream "%s".<br/><br/>' % (name, release)
     cont += "You are listed as a contact to approve this release. "
@@ -57,7 +57,7 @@ def sendSignEmail(to, name, release, h):
 
     sendEmail(to, cont, '%s release approval - action required' % name)
 
-@task()
+@task(time_limit=60)
 def sendScheduleNotification(to, release):
     cont = 'A %s release for %s has been scheduled for %s UTC' % (
         release.flow.name,
@@ -71,7 +71,7 @@ def sendScheduleNotification(to, release):
         release.scheduled
     ))
 
-@task()
+@task(time_limit=60)
 def doRelease(build, flow, scheduled=None):
     release = models.Release.objects.create(
         flow=flow,
@@ -107,7 +107,7 @@ def doRelease(build, flow, scheduled=None):
             so.save()
             sendSignEmail.delay(email, build.project.name, flow.name, so.idhash)
 
-@task()
+@task(time_limit=1800)
 def pushTargets(release, flow):
     """
     Pushes a release using Specter
@@ -211,7 +211,7 @@ def streamRelease(release):
     release.waiting = False
     release.save()
 
-@task()
+@task(time_limit=300)
 def runRelease(release):
     if release.lock:
         return
@@ -252,10 +252,10 @@ def checkReleases():
     if settings.DEBUG:
         print "tick"
     for release in releases:
-        # Check releases synchronously 
-        runRelease(release)
+        # Check releases asynchronously 
+        runRelease.delay(release)
 
-@task()
+@task(time_limit=1800)
 def build(build):
     """
     Use subprocess to execute a build, update the db with results along the way
