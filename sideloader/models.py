@@ -199,6 +199,12 @@ class Release(models.Model):
         
         return messages[c](s)
 
+    def __repr__(self):
+        return "<Release(release_date=%s, flow=%s, build=%s, scheduled=%s, waiting=%s, lock=%s)>" % (
+            self.release_date, self.flow.id, self.build.id, self.scheduled,
+            self.waiting, self.lock
+        )
+
 class ReleaseSignoff(models.Model):
     release = models.ForeignKey(Release)
     signature = models.CharField(max_length=255)
