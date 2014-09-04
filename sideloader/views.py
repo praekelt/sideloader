@@ -379,6 +379,7 @@ def workflow_edit(request, id):
             for target in targets:
                 if target.server.id not in ids:
                     print "Deleting old target", target
+                    target.delete()
 
             return redirect('projects_view', id=workflow.project.id)
 
