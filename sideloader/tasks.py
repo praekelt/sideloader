@@ -10,12 +10,16 @@ from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 
 from django.conf import settings
-from celery import task
 from sideloader import models, specter, slack
+from celery import task
+from celery.utils.log import get_task_logger
+
+logger = get_task_logger(__name__)
 
 @task(time_limit=10)
 def sendNotification(message, project):
     if project.notifications:
+        logger.info("Sending notification %s" % repr(message))
         if settings.SLACK_TOKEN:
             if project.slack_channel:
                 channel = project.slack_channel
@@ -116,6 +120,8 @@ def pushTargets(release, flow):
 
     for target in targets:
 
+        logger.info("Deploing release %s to target %s" % (repr(release), target.server.name))
+
         sendNotification.delay('Deployment started for build %s -> %s' % (
             release.build.build_file,
             target.server.name
@@ -197,6 +203,7 @@ def pushTargets(release, flow):
     release.waiting = False
     release.save()
 
+@task(time_limit=300)
 def streamRelease(release):
     sendNotification.delay('Pushing build %s to %s stream' % (
         release.build.build_file,
@@ -211,11 +218,7 @@ def streamRelease(release):
     release.waiting = False
     release.save()
 
-@task(time_limit=300)
-def runRelease(release):
-    if release.lock:
-        return
-
+def cleanReleases(release):
     if release.waiting:
         flow = release.flow
         next_release = flow.next_release()
@@ -224,11 +227,20 @@ def runRelease(release):
         # Cleanup stale releases, deprecated by request date
         if next_release:
             if release.release_date < next_release.release_date:
-                release.delete()
+                release.waiting = False
+                release.lock = False
+                release.save()
 
         if last_release:
             if release.release_date < last_release.release_date:
-                release.delete()
+                release.waiting = False
+                release.lock = False
+                release.save()
+
+@task(time_limit=300)
+def runRelease(release):
+    if release.waiting:
+        flow = release.flow
 
         if release.check_schedule() and release.check_signoff():
             release.lock = True
@@ -237,22 +249,41 @@ def runRelease(release):
             # Release the build
             if flow.stream_mode == 0:
                 # Stream only
-                streamRelease(release)
+                streamRelease.delay(release)
             elif flow.stream_mode == 2:
                 # Stream and targets
-                streamRelease(release)
+                streamRelease.delay(release)
                 pushTargets.delay(release, flow)
             else:
                 # Target only
                 pushTargets.delay(release, flow)
 
-@task()
+@task(time_limit=60)
 def checkReleases():
     releases = models.Release.objects.filter(waiting=True, lock=False)
-    if settings.DEBUG:
-        print "tick"
+    logger.info("Release queue is at %s" % len(releases))
+
+    skip = []
+
+    # Clean old releases
     for release in releases:
-        # Check releases asynchronously 
+        cleanReleases(release)
+
+        current = models.Release.objects.filter(flow=release.flow, waiting=True, lock=True).count()
+
+        if current > 0:
+            logger.info("Skipping release %s on this run - %s in queue" % (repr(release), current))
+            skip.append(release.id)
+
+    # Lock all the release objects we now see
+    releases = models.Release.objects.filter(waiting=True, lock=False).exclude(id__in=skip)
+
+    for release in releases:
+        release.lock=True
+        release.save()
+
+    for release in releases:
+        logger.info("Running release %s" % repr(release))
         runRelease.delay(release)
 
 @task(time_limit=1800)
