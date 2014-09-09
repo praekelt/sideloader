@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.core.urlresolvers import reverse
 from django.http import HttpResponse
+from django.contrib import messages
 from django.conf import settings
 
 from sideloader import forms, tasks, models
@@ -607,15 +608,30 @@ def projects_build(request, id):
     project = models.Project.objects.get(id=id)
     if project and (request.user.is_superuser or (
         project in request.user.project_set.all())):
+
+        # Are we already building this project?
         current_builds = models.Build.objects.filter(project=project, state=0)
         if current_builds:
+            msg = "Project %s is already being built" % project.name
+            messages.error(request, msg, fail_silently=True)
             return redirect('build_view', id=current_builds[0].id)
-        else:
-            build = models.Build.objects.create(project=project, state=0)
-            task = tasks.build.delay(build)
-            build.task_id = task.task_id
-            build.save()
-            return redirect('build_view', id=build.id)
+
+        # Is a build of this project being released? Can't do a single query
+        # because state is not aggregated on the release object.
+        for release in Release.objects.filter(build__project=project):
+            if release.release_state == 4:
+                msg = "A build of project %s is currently being released" \
+                    % project.name
+                messages.error(request, msg, fail_silently=True)
+                return redirect('home')
+
+        build = models.Build.objects.create(project=project, state=0)
+        task = tasks.build.delay(build)
+        build.task_id = task.task_id
+        build.save()
+        msg = "Project %s is being built" % project.name
+        messages.success(request, msg, fail_silently=True)
+        return redirect('build_view', id=build.id)
 
     return redirect('home')
 
