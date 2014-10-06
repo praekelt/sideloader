@@ -1,7 +1,26 @@
-import time, datetime
-from django.utils import timezone
+import time
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
+
+class Server(models.Model):
+    name = models.CharField(max_length=255)
+    last_checkin = models.DateTimeField(auto_now_add=True)
+    last_puppet_run = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=255, default='', blank=True)
+    change = models.BooleanField(default=True)
+    specter_status = models.CharField(max_length=255, default='', blank=True)
+
+    def age(self):
+        """Returns seconds since last checkin"""
+        now = timezone.now()
+        return int((now - self.last_checkin).total_seconds())
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
 
 
 class ReleaseStream(models.Model):
@@ -23,17 +42,31 @@ class Project(models.Model):
     release_stream = models.ForeignKey(ReleaseStream, null=True)
     idhash = models.CharField(max_length=48)
     allowed_users = models.ManyToManyField(User, blank=True)
+    notifications = models.BooleanField(default=True)
+    slack_channel = models.CharField(max_length=255, default='', blank=True)
+
+class BuildNumbers(models.Model):
+    package = models.CharField(max_length=255, unique=True)
+    build_num = models.IntegerField(default=0)
 
 class ReleaseFlow(models.Model):
     name = models.CharField(max_length=255)
     project = models.ForeignKey(Project)
-    stream = models.ForeignKey(ReleaseStream)
+
+    stream_mode = models.IntegerField(default=0)
+    stream = models.ForeignKey(ReleaseStream, null=True, blank=True)
 
     require_signoff = models.BooleanField(default=False)
     signoff_list = models.TextField(blank=True)
     quorum = models.IntegerField(default=0)
 
     auto_release = models.BooleanField(default=False)
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
 
     def email_list(self):
         if not '@' in self.signoff_list:
@@ -69,6 +102,39 @@ class Build(models.Model):
 
     build_file = models.CharField(max_length=255)
 
+class Target(models.Model):
+    server = models.ForeignKey(Server)
+    release = models.ForeignKey(ReleaseFlow)
+
+    # 0 - Nothing, 1 - In progress, 2 - Good, 3 - Bad
+    deploy_state = models.IntegerField(default=0)
+
+    current_build = models.ForeignKey(Build, null=True, blank=True)
+    log = models.TextField(default="")
+
+class ModuleManifest(models.Model):
+    name = models.CharField(max_length=255)
+    key = models.CharField(max_length=255)
+    structure = models.TextField()
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
+
+class ServerManifest(models.Model):
+    module = models.ForeignKey(ModuleManifest)
+    value = models.TextField()
+
+    release = models.ForeignKey(ReleaseFlow)
+
+    def __unicode__(self):
+        return self.module.name
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
+
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)
     flow = models.ForeignKey(ReleaseFlow)
@@ -77,6 +143,8 @@ class Release(models.Model):
     scheduled = models.DateTimeField(blank=True, null=True)
     
     waiting = models.BooleanField(default=True)
+
+    lock = models.BooleanField(default=False)
 
     def signoff_count(self):
         return self.releasesignoff_set.filter(signed=True).count()
@@ -130,6 +198,12 @@ class Release(models.Model):
         }
         
         return messages[c](s)
+
+    def __repr__(self):
+        return "<Release(release_date=%s, flow=%s, build=%s, scheduled=%s, waiting=%s, lock=%s)>" % (
+            self.release_date, self.flow.id, self.build.id, self.scheduled,
+            self.waiting, self.lock
+        )
 
 class ReleaseSignoff(models.Model):
     release = models.ForeignKey(Release)

@@ -1,46 +1,11 @@
 body {
-    padding-top: 20px;
-    padding-bottom: 60px;
+    padding-top: 50px;
 }
 
-.container {
-    margin: 0 auto;
-    max-width: 1000px;
-}
-.container > hr {
-    margin: 60px 0;
-}
-
-.navbar .navbar-inner {
-    padding: 0;
-}
-.navbar .nav {
-    margin: 0;
-    display: table;
-    width: 100%;
-}
-.navbar .nav li {
-    display: table-cell;
-    width: 1%;
-    float: none;
-}
-.navbar .nav li a {
-    font-weight: bold;
-    text-align: center;
-    border-left: 1px solid rgba(255,255,255,.75);
-    border-right: 1px solid rgba(0,0,0,.1);
-}
-.navbar .nav li:first-child a {
-    border-left: 0;
-    border-radius: 3px 0 0 3px;
-}
-.navbar .nav li:last-child a {
-    border-right: 0;
-    border-radius: 0 3px 3px 0;
-}
-
-.table tbody tr td {
-    vertical-align:middle;
+.form-signin {
+  max-width: 330px;
+  padding: 15px;
+  margin: 0 auto;
 }
 
 .usermast {
@@ -48,6 +13,165 @@ body {
 }
 
 .logview {
-    height: 300px;
-    overflow: scroll;
+    height: 500px;
+    overflow-y: scroll;
+    background-color: #222;
+    color: #aaa;
+}
+
+.sidebar {
+    position: fixed;
+    top: 40px;
+    bottom: 0;
+    left: 0;
+    z-index: 1000;
+    display: block;
+    padding: 20px;
+    overflow-x: hidden;
+    overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+    border-right: 1px solid #ccc;
+}
+
+.nav-sidebar {
+    margin-right: -21px; /* 20px padding + 1px border */
+    margin-bottom: 20px;
+    margin-left: -20px;
+}
+
+.nav-sidebar > li > a {
+    padding-right: 20px;
+    padding-left: 20px;
+}
+
+.nav-sidebar > .active > a {
+    color: #D9230F;
+    background-color: #ccc;
+}
+
+.navbar {
+    background-color: #444;
+    height: 45px;
+}
+
+.navbar-inverse .navbar-brand {
+    color: #fff;
+    padding-top: 5px;
+    padding-bottom: 0;
+    font-size: 20px;
+}
+
+.navbar-brand {
+    padding-bottom:none;
+}
+
+.navbar-inverse .navbar-brand:hover,
+.navbar-inverse .navbar-brand:focus {
+    color: #fff;
+}
+
+.main {
+  padding: 20px;
+}
+
+@media (min-width: 768px) {
+  .main {
+    padding-right: 40px;
+    padding-left: 40px;
+  }
+}
+
+.main .page-header {
+  margin-top: 0;
+}
+
+table.table thead .sorting_desc,
+table.table thead .sorting_asc_disabled,
+table.table thead .sorting_desc_disabled {
+    cursor: pointer;
+    *cursor: hand;
+}
+
+table.table thead .sorting { background: url('/static/images/sort_both.png') no-repeat center right; }
+table.table thead .sorting_asc { background: url('/static/images/sort_asc.png') no-repeat center right; }
+table.table thead .sorting_desc { background: url('/static/images/sort_desc.png') no-repeat center right; }
+
+table.table thead .sorting_asc_disabled { background: url('/static/images/sort_asc_disabled.png') no-repeat center right; }
+table.table thead .sorting_desc_disabled { background: url('/static/images/sort_desc_disabled.png') no-repeat center right; }
+
+.progress {
+    margin-bottom: 0px;
+}
+
+.electric {
+}
+
+.panel-group .panel {
+   overflow: visible;
+}
+
+.navbar-right {
+    padding-top:7px;
+}
+
+.dropdown-submenu{
+    position:relative;
+}
+.dropdown-submenu>.dropdown-menu{
+    top:0;
+    left:100%;
+    margin-top:-6px;
+    margin-left:-1px;
+    -webkit-border-radius:0 6px 6px 6px;
+    -moz-border-radius:0 6px 6px 6px;
+    border-radius:0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu{
+    display:block;
+}
+.dropdown-submenu>a:after{
+    display:block;
+    content:" ";
+    float:right;
+    width:0;
+    height:0;
+    border-color:transparent;
+    border-style:solid;
+    border-width:5px 0 5px 5px;
+    border-left-color:#cccccc;
+    margin-top:5px;
+    margin-right:-10px;
+}
+.dropdown-submenu:hover>a:after{
+    border-left-color:#ffffff;
+}
+.dropdown-submenu.pull-left{
+    float:none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu{
+    left:-100%;
+    margin-left:10px;
+    -webkit-border-radius:6px 0 6px 6px;
+    -moz-border-radius:6px 0 6px 6px;
+    border-radius:6px 0 6px 6px;
+}
+
+.editor-block{
+    margin-left: 32px;
+}
+
+.server-heading {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 5px;
+    padding-right: 5px;
+    padding-bottom: 5px;
+    padding-top: 5px;
+}
+
+.server-body{
+    padding-left: 5px;
+    padding-right: 5px;
+    padding-bottom: 5px;
+    padding-top: 5px;
 }

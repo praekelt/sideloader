@@ -1,0 +1,30 @@
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" with active="modules" %}
+{% endblock %}
+
+{% block content %}
+<div class="col-lg-5">
+    <h4>Puppet Modules</h4>
+    <p>
+        <a href="{% url 'module_create' %}" class="btn btn-default">Add</a>
+        {% if modules %}
+        <table class="table table-hover table-bordered table-condensed">
+            <tbody>
+                {% for module in modules %}
+                <tr>
+                    <td>{{ module.name }}</td>
+                    <td width="50em"><div class="btn-group btn-group-sm">
+                        <a class="btn btn-default" href="{% url 'module_edit' id=module.id %}"><span class="glyphicon glyphicon-edit electric"></span></a>
+                    </div></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <br/><br/>
+        No modules
+        {% endif %}
+    </p>
+</div>
+{% endblock %}

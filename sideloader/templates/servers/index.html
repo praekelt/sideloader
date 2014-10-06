@@ -1,0 +1,27 @@
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" with active="servers" %}
+{% endblock %}
+
+{% block content %}
+    <h4>Servers</h4>
+    <p>
+        {% if servers %}
+        <div class="row">
+            {% for server in servers %}
+            <div class="col-md-3 col-sm-6 col-xs-12 col-lg-3">
+                <div class="panel {% if server.age <= 300 %}panel-success{% elif server.age > 600 %}panel-danger{% else %}panel-warning{% endif %}">
+                    <div class="panel-heading server-heading">{{server.name}}</div>
+                    <div class="panel-body server-body">
+                    <strong>Last seen:</strong> {{server.last_checkin|timesince}} ago<br/>
+                    <strong>Manifest status:</strong> {{server.status}}<br/>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+        <br/><br/>
+        No servers configured
+        {% endif %}
+    </p>
+{% endblock %}

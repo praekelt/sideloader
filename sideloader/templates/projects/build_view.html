@@ -1,27 +1,31 @@
-{% include "fragments/head.html" with nav_active="projects" %}
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
 
-    {% if build %}
-    <div class="row-fluid">
-        <div class="span9">
-            <h4>Project details</h4>
-            <p>
-                <strong>Name:</strong> <a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a>
-            </p>
-        </div>
-    </div>
-    {% endif %}
+{% block content %}
 
-    <div class="row-fluid">
-        <div class="span9">
-            <p>
-                {% if build %}
-                <pre id="log" class="logview"></pre>
-                {% else %}
-                Not authorized
-                {% endif %}
-            </p>
-        </div>
+{% if build %}
+    <div class="col-lg-9">
+        <h4>Build log</h4>
+        <p>
+            <strong>Name:</strong> <a href="{% url 'projects_view' id=build.project.id %}">{{ build.project.name }}</a>
+        </p>
     </div>
+{% endif %}
+
+<div class="col-lg-9">
+    <p>
+        {% if build %}
+        <pre id="log" class="logview"></pre>
+        {% else %}
+        Not authorized
+        {% endif %}
+    </p>
+</div>
+{% endblock %}
+
+{% block script %}
 <script>
     $(function () {
         function updateBuildLog(){
@@ -40,4 +44,4 @@
         updateBuildLog();
     });
 </script>
-{% include "fragments/foot.html" %}
+{% endblock %}

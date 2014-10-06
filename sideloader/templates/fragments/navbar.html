@@ -1,33 +1,38 @@
-      <div class="masthead">
-        <div class="row-fluid">
-            <div class="span10"><h3 class="muted"><img src="/static/images/sideloader32.png"/> Sideloader</h3></div>
-            <div class="span2 usermast text-right">{% if user.is_authenticated %}
-                <div class="btn-group text-left">
-                    <button class="btn">{{user.username}}</button>
-                    <button class="btn dropdown-toggle" data-toggle="dropdown"><span class="caret"></span></button>
-                    <ul class="dropdown-menu">
-                          <li><a tabindex="-1" href="{% url 'accounts_profile' %}">Profile</a></li>
-                          <li><a tabindex="-1" href="{% url 'auth_logout' %}">Logout</a></li>
-                    </ul>
-                </div>{% endif %}
-            </div>
-        </div>
-        {% if user.is_authenticated %}
-        <div class="navbar">
-          <div class="navbar-inner">
-            <div class="container">
-              <ul class="nav">
-                <li {% if nav_active == "home" %}class="active"{% endif %}>
-                    <a href="/">Home</a></li>
-                <li {% if nav_active == "releases" %}class="active"{% endif %}>
-                    <a href="/releases">Releases</a></li>
-                <li {% if nav_active == "projects" %}class="active"{% endif %}>
-                    <a href="/projects">Projects</a></li>
-                <li {% if nav_active == "help" %}class="active"{% endif %}>
-                    <a href="/help">Help</a></li>
-              </ul>
-            </div>
-          </div>
-        </div><!-- /.navbar -->
-        {% endif %}
-      </div>
+<div class="col-xs-3 col-sm-3 col-md-2 col-lg-2 sidebar">
+  <ul class="nav nav-sidebar">
+    <li {% if active == "home" %}class="active"{% endif %}><a href="{% url 'home' %}">Build queue</a></li>
+    {% if user.is_superuser %}
+    <li {% if active == "releases" %}class="active"{% endif %}><a href="{% url 'release_index' %}">Release streams</a></li>
+    <li {% if active == "servers" %}class="active"{% endif %}><a href="{% url 'server_index' %}">Servers</a></li>
+    <li {% if active == "modules" %}class="active"{% endif %}><a href="{% url 'module_index' %}">Modules</a></li>
+    {% endif %}
+    <li {% if active == "help" %}class="active"{% endif %}><a href="{% url 'help_index' %}">Help</a></li>
+  </ul>
+  <h4>Projects
+  {% if user.is_superuser %}
+  &nbsp;[<a href="{% url 'projects_create' %}" > + </a>]
+  {% endif %}
+  </h4>
+  <input placeholder="Search Projects" id="box" type="text" />
+  <ul class="nav nav-sidebar nav-search">
+    {% for p in projects %}
+    <li {% if p.id == project.id %}class="active"{% endif %}>
+        <a href="{% url 'projects_view' id=p.id %}">&nbsp;&nbsp;{{ p.name }}</a>
+    </li>
+    {% endfor %} 
+  </ul>
+</div>
+
+<script>
+    $(function () {
+        $('#box').keyup(function(){
+
+            var valThis = $(this).val().toLowerCase();
+
+            $('.nav-search>li').each(function(){
+                var text = $(this).text().toLowerCase();
+                (text.indexOf(valThis) != -1) ? $(this).show() : $(this).hide();            
+            });
+        });
+    });
+</script>

@@ -8,13 +8,30 @@ import smtplib
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
-from email.MIMEImage import MIMEImage
 
 from django.conf import settings
+from sideloader import models, specter, slack
 from celery import task
-from sideloader import models
+from celery.utils.log import get_task_logger
 
-@task()
+logger = get_task_logger(__name__)
+
+@task(time_limit=10)
+def sendNotification(message, project):
+    if project.notifications:
+        logger.info("Sending notification %s" % repr(message))
+        if settings.SLACK_TOKEN:
+            if project.slack_channel:
+                channel = project.slack_channel
+            else:
+                channel=settings.SLACK_CHANNEL
+
+            sc = slack.SlackClient(settings.SLACK_HOST,
+                    settings.SLACK_TOKEN, channel)
+
+            sc.message(project.name + ": " + message)
+
+@task(time_limit=60)
 def sendEmail(to, content, subject):
     start = '<html><head></head><body style="font-family:arial,sans-serif;">'
     end = '</body></html>'
@@ -33,7 +50,7 @@ def sendEmail(to, content, subject):
     s.sendmail(msg['From'], msg['To'], msg.as_string())
     s.close()
 
-@task()
+@task(time_limit=60)
 def sendSignEmail(to, name, release, h):
     cont = 'A build release has been requested for "%s" to release stream "%s".<br/><br/>' % (name, release)
     cont += "You are listed as a contact to approve this release. "
@@ -44,7 +61,7 @@ def sendSignEmail(to, name, release, h):
 
     sendEmail(to, cont, '%s release approval - action required' % name)
 
-@task()
+@task(time_limit=60)
 def sendScheduleNotification(to, release):
     cont = 'A %s release for %s has been scheduled for %s UTC' % (
         release.flow.name,
@@ -58,7 +75,7 @@ def sendScheduleNotification(to, release):
         release.scheduled
     ))
 
-@task()
+@task(time_limit=60)
 def doRelease(build, flow, scheduled=None):
     release = models.Release.objects.create(
         flow=flow,
@@ -70,6 +87,12 @@ def doRelease(build, flow, scheduled=None):
     release.save()
 
     if scheduled:
+        sendNotification.delay('Deployment scheduled for build %s at %s UTC to %s' % (
+            release.build.build_file,
+            release.scheduled,
+            release.flow.name
+        ), release.flow.project)
+
         for name, email in settings.ADMINS:
             sendScheduleNotification.delay(email, release)
 
@@ -88,53 +111,227 @@ def doRelease(build, flow, scheduled=None):
             so.save()
             sendSignEmail.delay(email, build.project.name, flow.name, so.idhash)
 
-@task()
-def runRelease(release):
+@task(time_limit=1800)
+def pushTargets(release, flow):
+    """
+    Pushes a release using Specter
+    """
+    targets = flow.target_set.all()
+
+    for target in targets:
+
+        logger.info("Deploing release %s to target %s" % (repr(release), target.server.name))
+
+        sendNotification.delay('Deployment started for build %s -> %s' % (
+            release.build.build_file,
+            target.server.name
+        ), release.flow.project)
+
+        server = target.server
+
+        target.deploy_state=1
+        target.save()
+
+        sc = specter.SpecterClient(target.server.name,
+                settings.SPECTER_AUTHCODE, settings.SPECTER_SECRET)
+
+        url = target.release.project.github_url
+        package = url.split(':')[1].split('/')[-1][:-4]
+        
+        url = "%s/%s" % (
+            settings.SIDELOADER_PACKAGEURL, 
+            release.build.build_file
+        )
+
+        try:
+            stop = sc.get_all_stop()['stdout']
+
+            result = sc.post_install({
+                'package': package,
+                'url': url
+            })
+
+            if ('error' in result) or (result.get('code',2) > 0) or (
+                result.get('stderr') and not result.get('stdout')):
+                # Errors during deployment
+                target.deploy_state=3
+                if 'error' in result:
+                    target.log = '\n'.join([stop, result['error']])
+                else:
+                    target.log = '\n'.join([
+                        stop, result['stdout'], result['stderr']
+                    ])
+                target.save()
+                sendNotification.delay('Deployment of build %s to %s failed!' % (
+                    release.build.build_file,
+                    target.server.name
+                ), release.flow.project)
+
+                # Start services back up even on failure
+                start = sc.get_all_start()['stdout']
+            else:
+                puppet = sc.get_puppet_run()['stdout']
+                start = sc.get_all_start()['stdout']
+                target.deploy_state=2
+                target.log = '\n'.join([
+                    stop, result['stdout'], result['stderr'], puppet, start
+                ])
+                target.current_build = release.build
+                target.save()
+                sendNotification.delay('Deployment of build %s to %s complete' % (
+                    release.build.build_file,
+                    target.server.name
+                ), release.flow.project)
+
+            server.specter_status = "Reachable"
+
+        except Exception, e:
+            target.log = str(e)
+            target.deploy_state=3
+            target.save()
+
+            server.specter_status = str(e)
+           
+            sendNotification.delay('Deployment of build %s to %s failed!' % (
+                release.build.build_file,
+                target.server.name
+            ), release.flow.project)
+
+        server.save()
+
+    release.lock = False
+    release.waiting = False
+    release.save()
+
+@task(time_limit=300)
+def streamRelease(release):
+    sendNotification.delay('Pushing build %s to %s stream' % (
+        release.build.build_file,
+        release.flow.stream.name
+    ), release.flow.project)
+    # Stream release
+    push_cmd = release.flow.stream.push_command
+    os.system(push_cmd % os.path.join(
+        '/workspace/packages/', release.build.build_file))
+
+    release.lock = False
+    release.waiting = False
+    release.save()
+
+def cleanReleases(release):
     if release.waiting:
         flow = release.flow
         next_release = flow.next_release()
         last_release = flow.last_release()
+
+        # Cleanup stale releases, deprecated by request date
         if next_release:
             if release.release_date < next_release.release_date:
-                #print "Stale %s" % repr(release)
-                release.delete()
+                release.waiting = False
+                release.lock = False
+                release.save()
 
         if last_release:
             if release.release_date < last_release.release_date:
-                #print "Stale %s" % repr(release)
-                release.delete()
+                release.waiting = False
+                release.lock = False
+                release.save()
+
+@task(time_limit=300)
+def runRelease(release):
+    if release.waiting:
+        flow = release.flow
 
         if release.check_schedule() and release.check_signoff():
-            #print "Released %s" % repr(release)
-            release.waiting = False
+            release.lock = True
             release.save()
-            push_cmd = release.flow.stream.push_command
-            os.system(push_cmd % os.path.join(
-                '/workspace/packages/', release.build.build_file))
 
-@task()
+            # Release the build
+            if flow.stream_mode == 0:
+                # Stream only
+                streamRelease.delay(release)
+            elif flow.stream_mode == 2:
+                # Stream and targets
+                streamRelease.delay(release)
+                pushTargets.delay(release, flow)
+            else:
+                # Target only
+                pushTargets.delay(release, flow)
+
+@task(time_limit=60)
 def checkReleases():
-    releases = models.Release.objects.filter(waiting=True)
-    for release in releases:
-        # Check releases synchronously 
-        runRelease(release)
+    releases = models.Release.objects.filter(waiting=True, lock=False)
+    logger.info("Release queue is at %s" % len(releases))
 
-@task()
-def build(build, giturl, branch):
-    # Use subprocess to execute a build, update the db with results
+    skip = []
+
+    # Clean old releases
+    for release in releases:
+        cleanReleases(release)
+
+        current = models.Release.objects.filter(flow=release.flow, waiting=True, lock=True).count()
+
+        if current > 0:
+            logger.info("Skipping release %s on this run - %s in queue" % (repr(release), current))
+            skip.append(release.id)
+
+    # Lock all the release objects we now see
+    releases = models.Release.objects.filter(waiting=True, lock=False).exclude(id__in=skip)
+
+    for release in releases:
+        release.lock=True
+        release.save()
+
+    for release in releases:
+        logger.info("Running release %s" % repr(release))
+        runRelease.delay(release)
+
+@task(time_limit=1800)
+def build(build):
+    """
+    Use subprocess to execute a build, update the db with results along the way
+    """
+
+    project = build.project
+    giturl = project.github_url
+    chunks = giturl.split(':')[1].split('/')
+    repo = chunks[-1][:-4]
+
+    branch = project.branch
+
+    # Get a build number
+    try:
+        buildnums = models.BuildNumbers.objects.get(package=repo)
+    except models.BuildNumbers.DoesNotExist:
+        buildnums = models.BuildNumbers.objects.create(package=repo)
+
+    build_num = buildnums.build_num + 1
+
+    # Increment the project build number
+    buildnums.build_num += 1
+    buildnums.save()
+
+    id = project.idhash
+
     local = os.path.dirname(sys.argv[0])
     buildpack = os.path.join(local, 'bin/build_package')
 
     # Figure out some directory paths
-    chunks = giturl.split(':')[1].split('/')
-    repo = chunks[-1][:-4]
-    workspace = os.path.join('/workspace', repo)
+    workspace = os.path.join('/workspace', id)
     package = os.path.join(workspace, 'package')
     packages = '/workspace/packages'
 
-    #print "Executing build %s %s" % (giturl, branch)
+    if settings.DEBUG:
+        print "Executing build %s %s" % (giturl, branch)
 
-    args = [buildpack, '--branch', branch]
+    build.save()
+
+    sendNotification.delay(
+        'Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
+            settings.SIDELOADER_DOMAIN, build.id, build.id, branch
+        ), build.project)
+
+    args = [buildpack, '--branch', branch, '--build', str(build_num), '--id', id]
 
     if build.project.deploy_file:
         args.extend(['--deploy-file', build.project.deploy_file])
@@ -157,23 +354,38 @@ def build(build, giturl, branch):
 
     if builder.returncode != 0:
         build.state = 2
+        sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> failed' % (
+            settings.SIDELOADER_DOMAIN, build.id, build.id
+        ), build.project)
     else:
-        build.state = 1
         if not os.path.exists(packages):
             os.makedirs(packages)
 
         debs = [i for i in os.listdir(package) if i[-4:]=='.deb']
-        deb = debs[0]
-        build.build_file = deb
+        if not debs:
+            # We must have failed actually
+            build.state = 2
+            sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> failed' % (
+                settings.SIDELOADER_DOMAIN, build.id, build.id
+            ), build.project)
 
-        # Relocate the package to our archive
-        shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+        else:
+            build.state = 1
+            sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> successful' % (
+                settings.SIDELOADER_DOMAIN, build.id, build.id
+            ), build.project)
 
-        # Find any auto-release streams
-        flows = build.project.releaseflow_set.filter(auto_release=True)
-        if flows:
-            build.save()
-            for flow in flows:
-                doRelease.delay(build, flow)
+            deb = debs[0]
+            build.build_file = deb
+
+            # Relocate the package to our archive
+            shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+
+            # Find any auto-release streams
+            flows = build.project.releaseflow_set.filter(auto_release=True)
+            if flows:
+                build.save()
+                for flow in flows:
+                    doRelease.delay(build, flow)
 
     build.save()
