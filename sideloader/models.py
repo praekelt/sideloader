@@ -60,6 +60,10 @@ class ReleaseFlow(models.Model):
     signoff_list = models.TextField(blank=True)
     quorum = models.IntegerField(default=0)
 
+    service_restart = models.BooleanField(default=True)
+    service_pre_stop = models.BooleanField(default=True)
+    puppet_run = models.BooleanField(default=True)
+
     auto_release = models.BooleanField(default=False)
 
     def __unicode__(self):
@@ -105,9 +109,6 @@ class Build(models.Model):
 class Target(models.Model):
     server = models.ForeignKey(Server)
     release = models.ForeignKey(ReleaseFlow)
-
-    service_restart = models.BooleanField(default=True)
-    puppet_run = models.BooleanField(default=True)
 
     # 0 - Nothing, 1 - In progress, 2 - Good, 3 - Bad
     deploy_state = models.IntegerField(default=0)

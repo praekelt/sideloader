@@ -8,23 +8,31 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        # Adding field 'Target.service_restart'
-        db.add_column(u'sideloader_target', 'service_restart',
+        # Adding field 'ReleaseFlow.service_restart'
+        db.add_column(u'sideloader_releaseflow', 'service_restart',
                       self.gf('django.db.models.fields.BooleanField')(default=True),
                       keep_default=False)
 
-        # Adding field 'Target.puppet_run'
-        db.add_column(u'sideloader_target', 'puppet_run',
+        # Adding field 'ReleaseFlow.service_pre_stop'
+        db.add_column(u'sideloader_releaseflow', 'service_pre_stop',
+                      self.gf('django.db.models.fields.BooleanField')(default=True),
+                      keep_default=False)
+
+        # Adding field 'ReleaseFlow.puppet_run'
+        db.add_column(u'sideloader_releaseflow', 'puppet_run',
                       self.gf('django.db.models.fields.BooleanField')(default=True),
                       keep_default=False)
 
 
     def backwards(self, orm):
-        # Deleting field 'Target.service_restart'
-        db.delete_column(u'sideloader_target', 'service_restart')
+        # Deleting field 'ReleaseFlow.service_restart'
+        db.delete_column(u'sideloader_releaseflow', 'service_restart')
 
-        # Deleting field 'Target.puppet_run'
-        db.delete_column(u'sideloader_target', 'puppet_run')
+        # Deleting field 'ReleaseFlow.service_pre_stop'
+        db.delete_column(u'sideloader_releaseflow', 'service_pre_stop')
+
+        # Deleting field 'ReleaseFlow.puppet_run'
+        db.delete_column(u'sideloader_releaseflow', 'puppet_run')
 
 
     models = {
@@ -117,8 +125,11 @@ class Migration(SchemaMigration):
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '255'}),
             'project': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['sideloader.Project']"}),
+            'puppet_run': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'quorum': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             'require_signoff': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
+            'service_pre_stop': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
+            'service_restart': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'signoff_list': ('django.db.models.fields.TextField', [], {'blank': 'True'}),
             'stream': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['sideloader.ReleaseStream']", 'null': 'True', 'blank': 'True'}),
             'stream_mode': ('django.db.models.fields.IntegerField', [], {'default': '0'})
@@ -160,10 +171,8 @@ class Migration(SchemaMigration):
             'deploy_state': ('django.db.models.fields.IntegerField', [], {'default': '0'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'log': ('django.db.models.fields.TextField', [], {'default': "''"}),
-            'puppet_run': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
             'release': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['sideloader.ReleaseFlow']"}),
-            'server': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['sideloader.Server']"}),
-            'service_restart': ('django.db.models.fields.BooleanField', [], {'default': 'True'})
+            'server': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['sideloader.Server']"})
         }
     }
 
