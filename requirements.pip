@@ -1,5 +1,4 @@
 Django
-South
 gunicorn
 python-memcached
 raven
