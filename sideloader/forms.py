@@ -70,10 +70,32 @@ class FlowForm(BaseModelForm):
         widget=forms.RadioSelect,
         choices=((0, 'Stream',), (1, 'Server'), (2, 'Both')))
 
+    puppet_run = forms.BooleanField(
+        label='Run Puppet',
+        help_text="Force a Puppet run after deployments",
+        required=False,
+        initial=True)
+
+    service_restart = forms.BooleanField(
+        label='Restart services',
+        help_text="Restart all services after deployment",
+        required=False,
+        initial=False)
+
+    service_pre_stop = forms.BooleanField(
+        label='Stop/start services',
+        help_text="Stop all services before deployment then start them afterwards",
+        required=False,
+        initial=True)
+
     class Meta:
         exclude = ('project',)
         model = models.ReleaseFlow
-        fields = ['name', 'stream_mode', 'stream', 'targets', 'require_signoff', 'signoff_list', 'quorum', 'auto_release']
+        fields = [
+            'name', 'stream_mode', 'stream', 'targets',
+            'service_restart', 'service_pre_stop', 'puppet_run',
+            'require_signoff', 'signoff_list', 'quorum', 'auto_release',
+        ]
 
 class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")

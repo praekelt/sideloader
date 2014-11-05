@@ -60,6 +60,10 @@ class ReleaseFlow(models.Model):
     signoff_list = models.TextField(blank=True)
     quorum = models.IntegerField(default=0)
 
+    service_restart = models.BooleanField(default=True)
+    service_pre_stop = models.BooleanField(default=False)
+    puppet_run = models.BooleanField(default=True)
+
     auto_release = models.BooleanField(default=False)
 
     def __unicode__(self):
@@ -198,6 +202,12 @@ class Release(models.Model):
         }
         
         return messages[c](s)
+
+    def __repr__(self):
+        return "<Release(release_date=%s, flow=%s, build=%s, scheduled=%s, waiting=%s, lock=%s)>" % (
+            self.release_date, self.flow.id, self.build.id, self.scheduled,
+            self.waiting, self.lock
+        )
 
 class ReleaseSignoff(models.Model):
     release = models.ForeignKey(Release)
