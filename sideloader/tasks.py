@@ -179,7 +179,7 @@ def pushTargets(release, flow):
 
                 if flow.service_pre_stop:
                     start = sc.get_all_start()['stdout']
-                elif flow.service_restart
+                elif flow.service_restart:
                     restart = sc.get_all_stop()['stdout']
                     restart += sc.get_all_start()['stdout']
 
