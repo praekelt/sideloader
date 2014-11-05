@@ -45,16 +45,30 @@
             var mode = $('input:radio[name=stream_mode]:checked').val();
 
             if (mode==1) {
+                // Server
                 $("#div_id_stream").hide();
                 $("#div_id_targets").show();
+
+                $("#div_id_puppet_run").show();
+                $("#div_id_service_restart").show();
+                $("#div_id_service_pre_stop").show();
             }
             else if (mode==0){
+                // Stream
                 $("#div_id_stream").show();
                 $("#div_id_targets").hide();
+                $("#div_id_puppet_run").hide();
+                $("#div_id_service_restart").hide();
+                $("#div_id_service_pre_stop").hide();
             }
             else if (mode==2){
+                // Both
                 $("#div_id_stream").show();
                 $("#div_id_targets").show();
+
+                $("#div_id_puppet_run").show();
+                $("#div_id_service_restart").show();
+                $("#div_id_service_pre_stop").show();
             }
         }
 

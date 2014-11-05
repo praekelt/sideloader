@@ -143,8 +143,11 @@ def pushTargets(release, flow):
             release.build.build_file
         )
 
+        stop, start, restart, puppet = "", "", "", ""
+
         try:
-            stop = sc.get_all_stop()['stdout']
+            if flow.service_pre_stop:
+                stop = sc.get_all_stop()['stdout']
 
             result = sc.post_install({
                 'package': package,
@@ -168,13 +171,21 @@ def pushTargets(release, flow):
                 ), release.flow.project)
 
                 # Start services back up even on failure
-                start = sc.get_all_start()['stdout']
+                if flow.service_pre_stop:
+                    start = sc.get_all_start()['stdout']
             else:
-                puppet = sc.get_puppet_run()['stdout']
-                start = sc.get_all_start()['stdout']
+                if flow.puppet_run:
+                    puppet = sc.get_puppet_run()['stdout']
+
+                if flow.service_pre_stop:
+                    start = sc.get_all_start()['stdout']
+                elif flow.service_restart:
+                    restart = sc.get_all_stop()['stdout']
+                    restart += sc.get_all_start()['stdout']
+
                 target.deploy_state=2
                 target.log = '\n'.join([
-                    stop, result['stdout'], result['stderr'], puppet, start
+                    stop, result['stdout'], result['stderr'], puppet, start, restart
                 ])
                 target.current_build = release.build
                 target.save()
