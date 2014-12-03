@@ -64,6 +64,8 @@ $manage collectstatic --noinput</pre>
         <tr><td>$BUILDDIR</td><td>Path to build directory</td></tr>
         <tr><td>$INSTALLDIR</td><td>Path to where the build directory will be deployed</td></tr>
         <tr><td>$REPO</td><td>The base repo name</td></tr>
+        <tr><td>$NAME</td><td>The package name in configuration</td></tr>
+        <tr><td>$BRANCH</td><td>The branch name for this build</td></tr>
       </table>
       When the package is built the virtualenv will be exported with <em>pip freeze</em> and the package install script will automatically install them on the destination.
       </p>
@@ -73,6 +75,8 @@ $manage collectstatic --noinput</pre>
         <tr><td>$VENV</td><td>Path to virtualenv</td></tr>
         <tr><td>$PIP</td><td>Path to pip binary in virtualenv</td></tr>
         <tr><td>$INSTALLDIR</td><td>Path to where the build directory has been placed</td></tr>
+        <tr><td>$NAME</td><td>The package name in configuration</td></tr>
+        <tr><td>$BRANCH</td><td>The branch name for this build</td></tr>
       </table>
       </p>
       <p><h3>nginx:</h3>
