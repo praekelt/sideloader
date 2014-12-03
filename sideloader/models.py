@@ -39,9 +39,10 @@ class Project(models.Model):
     branch = models.CharField(max_length=255)
 
     deploy_file = models.CharField(max_length=255, default='.deploy.yaml')
-    package_name = models.CharField(max_length=255, default='')
-    build_script = models.CharField(max_length=255, default='')
-    postinstall_script = models.CharField(max_length=255, default='')
+    package_name = models.CharField(max_length=255, default='', blank=True)
+    build_script = models.CharField(max_length=255, default='', blank=True)
+    postinstall_script = models.CharField(
+        max_length=255, default='', blank=True)
 
     created_by_user = models.ForeignKey(User, related_name="ProjectCreatedBy")
     release_stream = models.ForeignKey(ReleaseStream, null=True)
