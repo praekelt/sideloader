@@ -36,9 +36,9 @@ class Sideloader:
 
 
         if args.name:
-            self.pkg_name = args.name
+            self.name = args.name
         else:
-            self.pkg_name = None
+            self.name = None
 
         if args.build_script:
             self.bscript = args.build_script
@@ -167,6 +167,9 @@ class Sideloader:
 
         if not self.bscript:
             self.bscript = self.deploy_yam.get('buildscript')
+
+        if not self.name:
+            self.name = self.repo
 
         self.log("Final build settings: %s" % repr({
             'repo': self.repo,
