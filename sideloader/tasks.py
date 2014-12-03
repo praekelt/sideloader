@@ -350,6 +350,15 @@ def build(build):
     if build.project.release_stream:
         args.extend(['--push', build.project.release_stream.push_command])
 
+    if build.project.package_name:
+        args.extend(['--name', build.project.package_name])
+
+    if build.build_script:
+        args.extend(['--build-script', build.project.build_script])
+
+    if build.postinstall_script:
+        args.extend(['--postinst-script', build.project.postinstall_script])
+
     args.append(giturl)
 
     builder = subprocess.Popen(args,
@@ -361,7 +370,6 @@ def build(build):
         build.save()
 
     builder.communicate()
-
 
     if builder.returncode != 0:
         build.state = 2
