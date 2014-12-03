@@ -303,7 +303,7 @@ class Sideloader:
         self.log("Building .deb package")
 
         fpm = 'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
-            name,
+            self.name,
             version,
             postinstall,
             depends,
