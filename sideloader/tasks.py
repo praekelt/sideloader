@@ -353,10 +353,10 @@ def build(build):
     if build.project.package_name:
         args.extend(['--name', build.project.package_name])
 
-    if build.build_script:
+    if build.project.build_script:
         args.extend(['--build-script', build.project.build_script])
 
-    if build.postinstall_script:
+    if build.project.postinstall_script:
         args.extend(['--postinst-script', build.project.postinstall_script])
 
     args.append(giturl)
