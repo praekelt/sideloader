@@ -22,7 +22,6 @@ class Sideloader:
 
         self.branch = self.sideloader_config.get('default_branch', 'develop')
         self.deploy_file = '.deploy.yaml'
-        self.push_command = self.sideloader_config.get('drop_command', None)
 
         if args.branch:
             self.branch = args.branch
@@ -30,13 +29,31 @@ class Sideloader:
         if args.deploy_file:
             self.deploy_file = args.deploy_file
 
-        if args.push:
-            self.push_command = args.push
-
         if args.build:
             self.build_num = args.build
         else:
             self.build_num = None
+
+
+        if args.name:
+            self.pkg_name = args.name
+        else:
+            self.pkg_name = None
+
+        if args.build_script:
+            self.bscript = args.build_script
+        else:
+            self.bscript = None
+
+        if args.postinst_script:
+            self.postinst_script = args.postinst_script
+        else:
+            self.postinst_script = None
+
+        if args.dtype:
+            self.deploy_type = args.dtype
+        else:
+            self.deploy_type = None
 
         if args.id:
             ws = args.id
@@ -67,6 +84,7 @@ class Sideloader:
             'VENV': self.build_venv, 
             'PIP': self.pip,
             'REPO': self.repo,
+            'BRANCH': self.branch,
             'WORKSPACE': self.workspace, 
             'BUILDDIR': self.build, 
             'PIP_DOWNLOAD_CACHE': '~/.pip_cache',
@@ -86,11 +104,13 @@ class Sideloader:
         parser.add_argument("--build", help="Build version")
         parser.add_argument("--id", help="Workspace ID")
         parser.add_argument("--deploy-file", help="Deploy YAML file (default .deploy.yaml)")
-        parser.add_argument("--push", help="Push command")
+        parser.add_argument("--name", help="Package name")
+        parser.add_argument("--build-script", help="Build script relative path")
+        parser.add_argument("--postinst-script", help="Post-install script relative path")
+        parser.add_argument("--dtype", help="Deploy type")
         args = parser.parse_args()
 
         return args
-
 
     def log(self, s):
         sys.stdout.write("[%s] %s\n" % (time.ctime(), s))
@@ -125,7 +145,8 @@ class Sideloader:
             open(os.path.join(self.workspace, self.repo, self.deploy_file))
         )
 
-        self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
+        if not self.deploy_type:
+            self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
         
         if self.deploy_type == 'virtualenv':
             self.log("Creating virtualenv")
@@ -141,6 +162,21 @@ class Sideloader:
                 print "Installing", dep
                 os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade %s' % (self.pip, dep))
 
+        if not self.postinst_script:
+            self.postinst_script = self.deploy_yam.get('postinstall')
+
+        if not self.bscript:
+            self.bscript = self.deploy_yam.get('buildscript')
+
+        self.log("Final build settings: %s" % repr({
+            'repo': self.repo,
+            'postinst_script': self.postinst_script,
+            'name': self.name,
+            'type': self.deploy_type,
+            'build_script': self.bscript
+        }))
+
+        os.putenv('NAME', self.name)
         os.chdir(self.workspace)
 
     def createPackage(self):
@@ -184,7 +220,7 @@ class Sideloader:
         # Construct a post-install that also creates our virtualenv
         if self.deploy_type == 'virtualenv':
             # Freeze post build requirements
-            os.system('%s freeze > %s/%s-requirements.pip' % (self.pip, dest, self.repo))
+            os.system('%s freeze > %s/%s-requirements.pip' % (self.pip, dest, self.name))
 
             postscript.write(
                 "/usr/bin/virtualenv --setuptools"
@@ -211,17 +247,19 @@ class Sideloader:
                 "PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade -r %s\n" % (
                     self.install_pip,
                     os.path.join(self.install_location,
-                        '%s-requirements.pip' % self.repo)
+                        '%s-requirements.pip' % self.name)
                 )
             )
 
         postscript.write("INSTALLDIR=%s\n" % self.install_location)
         postscript.write("REPO=%s\n" % self.repo)
+        postscript.write("NAME=%s\n" % self.name)
+        postscript.write("BRANCH=%s\n" % self.branch)
 
         # Merge the custom postinstall
-        if self.deploy_yam.get('postinstall'):
-            mypost = open(os.path.join(self.workspace, self.repo,
-                self.deploy_yam.get('postinstall')))
+        if self.postinst_script:
+            mypost = open(
+                os.path.join(self.workspace, self.repo, self.postinst_script))
             for ln in mypost:
                 postscript.write(ln)
 
@@ -258,7 +296,6 @@ class Sideloader:
         else:
             user = ''
 
-        name = self.deploy_yam.get('name', self.repo)
 
         self.log("Building .deb package")
 
