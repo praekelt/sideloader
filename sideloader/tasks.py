@@ -347,9 +347,6 @@ def build(build):
     if build.project.deploy_file:
         args.extend(['--deploy-file', build.project.deploy_file])
 
-    if build.project.release_stream:
-        args.extend(['--push', build.project.release_stream.push_command])
-
     if build.project.package_name:
         args.extend(['--name', build.project.package_name])
 
