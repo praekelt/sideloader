@@ -1,4 +1,5 @@
 manage="${VENV}/bin/python ${INSTALLDIR}/sideloader/manage.py"
 
-$manage syncdb --noinput --no-initial-data --migrate
+$manage migrate
+$manage syncdb --noinput --no-initial-data
 $manage collectstatic --noinput
