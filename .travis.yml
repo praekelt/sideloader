@@ -5,5 +5,8 @@ python:
 install:
   - "pip install -r requirements.pip"
   - "pip install -r requirements-dev.pip"
+before_script:
+  - git config --global user.email "tester@example.com"
+  - git config --global user.name "Testy Testerson"
 script:
   - py.test tests/
