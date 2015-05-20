@@ -204,8 +204,9 @@ class Sideloader:
         for d in os.listdir(self.build):
             try:
                 shutil.copytree(os.path.join(self.build, d), os.path.join(dest, d))
-            except:
-                print "Warning: Could not copy %s to package" % d
+            except Exception as err:
+                print "Warning: Could not copy %s to package: %s %s" % (
+                    d, type(err), err)
 
         # Create nginx configs
         for conf in self.deploy_yam.get('nginx', []):
