@@ -66,9 +66,10 @@ class Sideloader:
         self.org = chunks[-2]
 
         # It's all about the paths
-        self.workspace = os.path.join('/workspace', ws)
+        workspace_base = self.sideloader_config.get('workspace_base', '/workspace')
+        self.workspace = os.path.join(workspace_base, ws)
         self.build = os.path.join(self.workspace, 'build')
-        self.packages = '/workspace/packages'
+        self.packages = os.path.join(workspace_base, 'packages')
 
         # Paths for build time
         self.build_venv = os.path.join(self.workspace, 've')
