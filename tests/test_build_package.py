@@ -146,3 +146,34 @@ def test_helloworld_build(builder):
     # Extra stuff for "virtualenv" build type
     assert "/usr/bin/virtualenv /opt/python" in postinstall
     assert "VENV=/opt/python" in postinstall
+
+
+def test_venv_path_config(builder):
+    """
+    The installed virtualenv can be configured to live in a different place.
+    """
+    builder.write_sideloader_config()
+    repo_dir = builder.create_repo("org", "project")
+    builder.create_branch(repo_dir, "master", files={
+        ".deploy.yaml": yaml.dump({
+            "buildscript": "scripts/build.sh",
+            "virtualenv_prefix": "plane",
+        }),
+        "scripts/build.sh": "echo 'hello from builder'",
+    })
+    returncode, output = builder.run_build("--id=id0", "file://%s" % repo_dir)
+    assert returncode == 0
+    assert "hello from builder" in output.splitlines()
+
+    workspace_dir = builder.workspace_dir("id0")
+    postinstall = workspace_dir.join("postinstall.sh").read().splitlines()
+
+    # Standard variables
+    assert "INSTALLDIR=/opt" in postinstall
+    assert "REPO=project" in postinstall
+    assert "NAME=project" in postinstall
+    assert "BRANCH=master" in postinstall
+
+    # Extra stuff for "virtualenv" build type
+    assert "/usr/bin/virtualenv /opt/plane-python" in postinstall
+    assert "VENV=/opt/plane-python" in postinstall

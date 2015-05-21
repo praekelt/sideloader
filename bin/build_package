@@ -76,11 +76,6 @@ class Sideloader:
         self.pip = os.path.join(self.build_venv, 'bin/pip')
         self.python = os.path.join(self.build_venv, 'bin/python')
 
-        # Paths for post-install time
-        self.install_venv = os.path.join(self.install_location, 'python')
-        self.install_pip = os.path.join(self.install_venv, 'bin/pip')
-        self.install_python = os.path.join(self.install_venv, 'bin/python')
-
         self.env = {
             'VENV': self.build_venv, 
             'PIP': self.pip,
@@ -145,6 +140,17 @@ class Sideloader:
         self.deploy_yam = yaml.load(
             open(os.path.join(self.workspace, self.repo, self.deploy_file))
         )
+
+        # Paths for post-install time
+        venv_prefix = self.deploy_yam.get('virtualenv_prefix')
+        if venv_prefix is not None:
+            # TODO: Strip '/' to avoid path shenanigans?
+            venv_dir = '%s-python' % venv_prefix
+        else:
+            venv_dir = 'python'
+        self.install_venv = os.path.join(self.install_location, venv_dir)
+        self.install_pip = os.path.join(self.install_venv, 'bin/pip')
+        self.install_python = os.path.join(self.install_venv, 'bin/python')
 
         if not self.deploy_type:
             self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
