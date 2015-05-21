@@ -98,9 +98,10 @@ class Builder(object):
         output = ""
         self.rundir.ensure(dir=True)
         proc = subprocess.Popen(
-            [str(build_package_path)] + list(args), cwd=str(self.rundir),
+            ["python", str(build_package_path)] + list(args),
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            env={"PATH": "%s:%s" % (self.bindir, os.environ["PATH"])})
+            env={"PATH": "%s:%s" % (self.bindir, os.environ["PATH"])},
+            cwd=str(self.rundir))
 
         for line in iter(proc.stdout.readline, ""):
             output += line
