@@ -120,6 +120,9 @@ def builder(tmpdir):
 def test_helloworld_build(builder):
     """
     A trivial build succeeds and includes the build script's output.
+
+    The default build type is "virtualenv", so the generated postinstall script
+    containins venv setup.
     """
     builder.write_sideloader_config()
     repo_dir = builder.create_repo("org", "project")
@@ -130,3 +133,16 @@ def test_helloworld_build(builder):
     returncode, output = builder.run_build("--id=id0", "file://%s" % repo_dir)
     assert returncode == 0
     assert "hello from builder" in output.splitlines()
+
+    workspace_dir = builder.workspace_dir("id0")
+    postinstall = workspace_dir.join("postinstall.sh").read().splitlines()
+
+    # Standard variables
+    assert "INSTALLDIR=/opt" in postinstall
+    assert "REPO=project" in postinstall
+    assert "NAME=project" in postinstall
+    assert "BRANCH=master" in postinstall
+
+    # Extra stuff for "virtualenv" build type
+    assert "/usr/bin/virtualenv /opt/python" in postinstall
+    assert "VENV=/opt/python" in postinstall
