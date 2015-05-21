@@ -1,5 +1,6 @@
 import os.path
 import subprocess
+import sys
 
 import py.path
 import pytest
@@ -103,6 +104,7 @@ class Builder(object):
 
         for line in iter(proc.stdout.readline, ""):
             output += line
+            sys.stdout.write(line)
 
         proc.communicate()
 
