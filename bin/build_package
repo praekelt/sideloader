@@ -60,6 +60,10 @@ class Sideloader:
         else:
             ws = self.repo
 
+        # We set this to `False` here so we can use `self.fail_build()` before
+        # we've read the deploy config.
+        self.allow_broken_build = False
+
         # Rip the github url apart
         chunks = self.githuburl.split(':')[1].split('/')
         self.repo = chunks[-1][:-4]
@@ -141,6 +145,9 @@ class Sideloader:
             open(os.path.join(self.workspace, self.repo, self.deploy_file))
         )
 
+        self.allow_broken_build = self.deploy_yam.get(
+            'allow_broken_build', False)
+
         # Paths for post-install time
         venv_prefix = self.deploy_yam.get('virtualenv_prefix')
         if venv_prefix is not None:
@@ -214,6 +221,7 @@ class Sideloader:
             except Exception as err:
                 print "Warning: Could not copy %s to package: %s %s" % (
                     d, type(err), err)
+                self.fail_build("Error copying files to package")
 
         # Create nginx configs
         for conf in self.deploy_yam.get('nginx', []):
@@ -342,9 +350,21 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
             )
 
         os.system('chmod a+x %s' % buildscript)
-        os.system(buildscript)
+        exit_status = os.system(buildscript)
+        # The high byte of the exit status is the process exit code.
+        exit_code = exit_status >> 8
+        if exit_code != 0:
+            self.fail_build("Build script exited with code %s" % exit_code)
 
         self.createPackage()
+
+    def fail_build(self, reason, code=1):
+        if self.allow_broken_build:
+            self.log("Build failure overridden: %s" % reason)
+        else:
+            self.log("Build failed: %s" % reason)
+            sys.exit(code)
+
 
 sideloader = Sideloader()
 sideloader.buildProject()
