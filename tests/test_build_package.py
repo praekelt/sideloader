@@ -199,6 +199,11 @@ def test_broken_build_succeeds(builder):
     assert build_copyfail.read() == "copy fail\n"
     assert package_copyfail.check(exists=False)
 
+    assert build_result.contains_regex(
+        r"\[.*\] Build failure overridden: Build script exited with code 1$")
+    assert build_result.contains_regex(
+        r"\[.*\] Build failure overridden: Error copying files to package$")
+
 
 def test_build_with_bad_file_fails(builder):
     """
@@ -221,6 +226,8 @@ def test_build_with_bad_file_fails(builder):
         "<type 'exceptions.OSError'> [Errno 20] Not a directory:",
         "'%s'" % workspace_dir.join("build", "copyfail.txt"))
     assert build_result.contains_line(copy_warning)
+    assert build_result.contains_regex(
+        r"\[.*\] Build failed: Error copying files to package$")
 
 
 def test_build_with_script_error_fails(builder):
@@ -236,6 +243,8 @@ def test_build_with_script_error_fails(builder):
     build_result = builder.run_build("--id=id0", "file://%s" % repo_dir)
     assert build_result.code == 1
     assert build_result.contains_line("hello from builder")
+    assert build_result.contains_regex(
+        r"\[.*\] Build failed: Build script exited with code 1$")
 
 
 def test_venv_path_config(builder):
