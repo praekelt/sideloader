@@ -141,6 +141,9 @@ class Sideloader:
             open(os.path.join(self.workspace, self.repo, self.deploy_file))
         )
 
+        self.allow_broken_build = self.deploy_yam.get(
+            'allow_broken_build', False)
+
         # Paths for post-install time
         venv_prefix = self.deploy_yam.get('virtualenv_prefix')
         if venv_prefix is not None:
@@ -214,6 +217,8 @@ class Sideloader:
             except Exception as err:
                 print "Warning: Could not copy %s to package: %s %s" % (
                     d, type(err), err)
+                if not self.allow_broken_build:
+                    sys.exit(1)
 
         # Create nginx configs
         for conf in self.deploy_yam.get('nginx', []):
@@ -342,7 +347,9 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
             )
 
         os.system('chmod a+x %s' % buildscript)
-        os.system(buildscript)
+        if os.system(buildscript):
+            if not self.allow_broken_build:
+                sys.exit(1)
 
         self.createPackage()
 
