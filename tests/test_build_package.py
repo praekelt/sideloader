@@ -1,4 +1,5 @@
 import os.path
+import re
 import subprocess
 import sys
 
@@ -92,7 +93,9 @@ class Builder(object):
 
         :param *args: Arguments to pass to the `build_package` invocation.
 
-        :returns: A tuple of (returncode, output) for the `build_package` run.
+        :returns:
+            A :class:`BuildResult` object containing the return code and output
+            of the build.
         """
         self.add_executable("fpm", '#!/bin/bash\necho "[[$@]]"')
         output = ""
@@ -109,7 +112,30 @@ class Builder(object):
 
         proc.communicate()
 
-        return (proc.returncode, output)
+        return BuildResult(proc.returncode, output)
+
+
+class BuildResult(object):
+    def __init__(self, code, output):
+        self.code = code
+        self.output = output
+        self.output_lines = output.splitlines()
+
+    def contains_line(self, line):
+        return line in self.output_lines
+
+    def contains_regex(self, line_regex):
+        """
+        Returns `True` if there is an output line that matches the given regex.
+
+        :param line_regex: May be a regex object or a string.
+        """
+        if isinstance(line_regex, basestring):
+            line_regex = re.compile(line_regex)
+        for line in self.output_lines:
+            if line_regex.match(line):
+                return True
+        return False
 
 
 @pytest.fixture
@@ -130,9 +156,9 @@ def test_helloworld_build(builder):
         ".deploy.yaml": yaml.dump({"buildscript": "scripts/build.sh"}),
         "scripts/build.sh": "echo 'hello from builder'",
     })
-    returncode, output = builder.run_build("--id=id0", "file://%s" % repo_dir)
-    assert returncode == 0
-    assert "hello from builder" in output.splitlines()
+    build_result = builder.run_build("--id=id0", "file://%s" % repo_dir)
+    assert build_result.code == 0
+    assert build_result.contains_line("hello from builder")
 
     workspace_dir = builder.workspace_dir("id0")
     postinstall = workspace_dir.join("postinstall.sh").read().splitlines()
@@ -164,8 +190,8 @@ def test_broken_build_succeeds(builder):
             "exit 1",
         ]),
     })
-    returncode, output = builder.run_build("--id=id0", "file://%s" % repo_dir)
-    assert returncode == 0
+    build_result = builder.run_build("--id=id0", "file://%s" % repo_dir)
+    assert build_result.code == 0
 
     workspace_dir = builder.workspace_dir("id0")
     build_copyfail = workspace_dir.join("build", "copyfail.txt")
@@ -186,15 +212,15 @@ def test_build_with_bad_file_fails(builder):
         ".deploy.yaml": yaml.dump({"buildscript": "scripts/build.sh"}),
         "scripts/build.sh": "echo 'copy fail' > $BUILDDIR/copyfail.txt",
     })
-    returncode, output = builder.run_build("--id=id0", "file://%s" % repo_dir)
-    assert returncode == 1
+    build_result = builder.run_build("--id=id0", "file://%s" % repo_dir)
+    assert build_result.code == 1
 
     workspace_dir = builder.workspace_dir("id0")
     copy_warning = "Warning: Could not copy %s to package: %s %s" % (
         "copyfail.txt",
         "<type 'exceptions.OSError'> [Errno 20] Not a directory:",
         "'%s'" % workspace_dir.join("build", "copyfail.txt"))
-    assert copy_warning in output
+    assert build_result.contains_line(copy_warning)
 
 
 def test_build_with_script_error_fails(builder):
@@ -207,9 +233,9 @@ def test_build_with_script_error_fails(builder):
         ".deploy.yaml": yaml.dump({"buildscript": "scripts/build.sh"}),
         "scripts/build.sh": "echo 'hello from builder'; exit 1",
     })
-    returncode, output = builder.run_build("--id=id0", "file://%s" % repo_dir)
-    assert returncode == 1
-    assert "hello from builder" in output
+    build_result = builder.run_build("--id=id0", "file://%s" % repo_dir)
+    assert build_result.code == 1
+    assert build_result.contains_line("hello from builder")
 
 
 def test_venv_path_config(builder):
@@ -225,9 +251,9 @@ def test_venv_path_config(builder):
         }),
         "scripts/build.sh": "echo 'hello from builder'",
     })
-    returncode, output = builder.run_build("--id=id0", "file://%s" % repo_dir)
-    assert returncode == 0
-    assert "hello from builder" in output.splitlines()
+    build_result = builder.run_build("--id=id0", "file://%s" % repo_dir)
+    assert build_result.code == 0
+    assert build_result.contains_line("hello from builder")
 
     workspace_dir = builder.workspace_dir("id0")
     postinstall = workspace_dir.join("postinstall.sh").read().splitlines()
