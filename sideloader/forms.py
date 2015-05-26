@@ -21,6 +21,7 @@ class BaseForm(forms.Form):
 class ModuleForm(BaseModelForm):
     class Meta:
         model = models.ModuleManifest
+        fields = ('name', 'key', 'structure',)
 
 class ManifestForm(BaseModelForm):
     class Meta:
@@ -30,6 +31,7 @@ class ManifestForm(BaseModelForm):
 class ReleaseForm(BaseModelForm):
     class Meta:
         model = models.ReleaseStream
+        fields = ('name', 'push_command',)
 
 class ReleasePushForm(BaseModelForm):
     tz = forms.CharField(widget=forms.HiddenInput())
