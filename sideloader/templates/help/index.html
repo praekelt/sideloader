@@ -67,7 +67,8 @@ $manage collectstatic --noinput</pre>
         <tr><td>$NAME</td><td>The package name in configuration</td></tr>
         <tr><td>$BRANCH</td><td>The branch name for this build</td></tr>
       </table>
-      When the package is built the virtualenv will be exported with <em>pip freeze</em> and the package install script will automatically install them on the destination.
+      When the package is built the virtualenv will be exported with <em>pip freeze</em> and the package install script will automatically install them on the destination.<br/>
+      If your build script returns a nonzero exit code, the build will fail.
       </p>
       <p><h3>postinstall:</h3>
       The postinstall script is run after installation of the built .deb package. It can be used to run database migrations and other functions which can only be used with a working environment and it will be run as the root user from whatever path apt is run from. The postinstall script will also receive a number of environment variables, however it is not executed as a standalone script rather it is embedded in a wrapper script to configure a more useful environment. The following are provided
@@ -94,6 +95,12 @@ $manage collectstatic --noinput</pre>
       </p>
       <p><h3>dependencies:</h3>
       List of apt package dependencies. This should include everything required to use the package, for example nginx or system libraries required for PIL or Postgresql. Do not install any database servers as they may not necessarily be on the same physical host as the application.
+      </p>
+      <p><h3>virtualenv_prefix:</h3>
+      If set, this specifies a name prefix for the virtualenv created at install time. This allows different packages to have their own virtualenvs instead of sharing the default virtualenv.
+      </p>
+      <p><h3>allow_broken_build:</h3>
+      If set to true, certain build errors will be ignored. You should only use this if a previously "working" build starts failing due to an error that sideloader didn't notice before. <strong>NOTE: This feature is intended only for backward compatibility while you fix your build and may change or be removed without notice.</strong>
       </p>
     </section>
 
