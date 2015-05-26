@@ -67,7 +67,8 @@ $manage collectstatic --noinput</pre>
         <tr><td>$NAME</td><td>The package name in configuration</td></tr>
         <tr><td>$BRANCH</td><td>The branch name for this build</td></tr>
       </table>
-      When the package is built the virtualenv will be exported with <em>pip freeze</em> and the package install script will automatically install them on the destination.
+      When the package is built the virtualenv will be exported with <em>pip freeze</em> and the package install script will automatically install them on the destination.<br/>
+      If your build script returns a nonzero exit code, the build will fail.
       </p>
       <p><h3>postinstall:</h3>
       The postinstall script is run after installation of the built .deb package. It can be used to run database migrations and other functions which can only be used with a working environment and it will be run as the root user from whatever path apt is run from. The postinstall script will also receive a number of environment variables, however it is not executed as a standalone script rather it is embedded in a wrapper script to configure a more useful environment. The following are provided
