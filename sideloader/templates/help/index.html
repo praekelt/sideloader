@@ -98,9 +98,11 @@ $manage collectstatic --noinput</pre>
       </p>
       <p><h3>virtualenv_prefix:</h3>
       If set, this specifies a name prefix for the virtualenv created at install time. This allows different packages to have their own virtualenvs instead of sharing the default virtualenv.
+      <pre>virtualenv_prefix: my-project</pre>
       </p>
       <p><h3>allow_broken_build:</h3>
       If set to true, certain build errors will be ignored. You should only use this if a previously "working" build starts failing due to an error that sideloader didn't notice before. <strong>NOTE: This feature is intended only for backward compatibility while you fix your build and may change or be removed without notice.</strong>
+      <pre>allow_broken_build: true  # I'm happy to deploy nonfunctional packages.</pre>
       </p>
     </section>
 
