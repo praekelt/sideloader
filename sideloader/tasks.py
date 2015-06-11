@@ -377,7 +377,7 @@ def build(build):
         if not os.path.exists(packages):
             os.makedirs(packages)
 
-        debs = [i for i in os.listdir(package) if i[-4:]=='.deb']
+        debs = [i for i in os.listdir(package) if ((i[-4:]=='.deb') or (i[-4:]=='.rpm'))]
         if not debs:
             # We must have failed actually
             build.state = 2
