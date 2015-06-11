@@ -161,6 +161,8 @@ class Sideloader:
 
         if not self.deploy_type:
             self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
+
+        self.package_target = self.deploy_yam.get('package_target', 'deb')
         
         if self.deploy_type == 'virtualenv':
             self.log("Creating virtualenv")
@@ -311,29 +313,50 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
         for dep in deplist:
             depends += ' -d "%s"' % dep
 
-        if self.deploy_yam.get('user'):
-            user = '--deb-user %s ' % self.deploy_yam['user']
+        if self.package_target == 'deb':
+            if self.deploy_yam.get('user'):
+                user = '--deb-user %s ' % self.deploy_yam['user']
+            else:
+                user = ''
+
+
+            self.log("Building .deb package")
+
+            fpm = 'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
+                self.name,
+                version,
+                postinstall,
+                depends,
+                user
+            )
+
+            os.system(fpm)
+
+            self.log("Signing package")
+            # Sign the package, if we care
+            key = self.sideloader_config.get('gpg_key')
+            if key:
+                os.system('dpkg-sig -k %s --sign builder *.deb' % key)
+
+        elif self.package_target == 'rpm':
+            if self.deploy_yam.get('user'):
+                user = '--rpm-user %s ' % self.deploy_yam['user']
+            else:
+                user = ''
+
+            self.log("Building .rpm package")
+
+            fpm = 'fpm -s dir -t rpm -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
+                self.name,
+                version,
+                postinstall,
+                depends,
+                user
+            )
+
+            os.system(fpm)
         else:
-            user = ''
-
-
-        self.log("Building .deb package")
-
-        fpm = 'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
-            self.name,
-            version,
-            postinstall,
-            depends,
-            user
-        )
-
-        os.system(fpm)
-
-        self.log("Signing package")
-        # Sign the package, if we care
-        key = self.sideloader_config.get('gpg_key')
-        if key:
-            os.system('dpkg-sig -k %s --sign builder *.deb' % key)
+            self.log("Unknown package type %s" % self.package_target)
 
         self.log("Build completed successfully")
 
