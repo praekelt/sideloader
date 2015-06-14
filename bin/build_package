@@ -339,7 +339,7 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
         else:
             user = ''
 
-        self.log("Building .deb package")
+        self.log("Building .%s package" % self.package_target)
 
         fpm = 'fpm -s %s -t %s -a amd64 -n %s -v %s --after-install %s %s %s %s' % (
             dtype,
