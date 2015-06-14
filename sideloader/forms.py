@@ -102,6 +102,18 @@ class FlowForm(BaseModelForm):
 class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")
 
+    deploy_type = forms.ChoiceField(
+        label='Deploy type',
+        widget=forms.RadioSelect,
+        choices=(
+            ('virtualenv', 'Virtualenv'),
+            ('python', 'Python package'), ('flat', 'Flat')))
+
+    package_manager = forms.ChoiceField(
+        label='Package manager target',
+        widget=forms.RadioSelect,
+        choices=(('deb', 'Debian'),('rpm', 'Redhat')))
+
     allowed_users = forms.ModelMultipleChoiceField(
         queryset=User.objects.all().order_by('username'),
         required=False

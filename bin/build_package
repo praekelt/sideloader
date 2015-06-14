@@ -60,6 +60,11 @@ class Sideloader:
         else:
             ws = self.repo
 
+        if args.packman:
+            self.package_target = args.packman
+        else:
+            self.package_target = None
+
         # We set this to `False` here so we can use `self.fail_build()` before
         # we've read the deploy config.
         self.allow_broken_build = False
@@ -108,6 +113,8 @@ class Sideloader:
         parser.add_argument("--build-script", help="Build script relative path")
         parser.add_argument("--postinst-script", help="Post-install script relative path")
         parser.add_argument("--dtype", help="Deploy type")
+        parser.add_argument("--packman", help="Package manager, 'deb' or 'rpm' (default 'deb')")
+
         args = parser.parse_args()
 
         return args
@@ -141,9 +148,13 @@ class Sideloader:
         os.chdir(os.path.join(self.workspace, self.repo))
         os.system('git checkout %s' % self.branch)
 
-        self.deploy_yam = yaml.load(
-            open(os.path.join(self.workspace, self.repo, self.deploy_file))
-        )
+        try:
+            self.deploy_yam = yaml.load(
+                open(os.path.join(self.workspace, self.repo, self.deploy_file))
+            )
+        except:
+            self.deploy_yam = {}
+            self.log("No deploy file found, continuing with defaults")
 
         self.allow_broken_build = self.deploy_yam.get(
             'allow_broken_build', False)
@@ -159,10 +170,13 @@ class Sideloader:
         self.install_pip = os.path.join(self.install_venv, 'bin/pip')
         self.install_python = os.path.join(self.install_venv, 'bin/python')
 
+        self.init_script = self.deploy_yam.get('init-script', None)
+
         if not self.deploy_type:
             self.deploy_type = self.deploy_yam.get('buildtype', 'virtualenv')
 
-        self.package_target = self.deploy_yam.get('package_target', 'deb')
+        if not self.package_target:
+            self.package_target = self.deploy_yam.get('package_target', 'deb')
         
         if self.deploy_type == 'virtualenv':
             self.log("Creating virtualenv")
@@ -180,10 +194,10 @@ class Sideloader:
                 os.system('PIP_DOWNLOAD_CACHE=~/.pip_cache %s install --upgrade %s' % (self.pip, dep))
 
         if not self.postinst_script:
-            self.postinst_script = self.deploy_yam.get('postinstall')
+            self.postinst_script = self.deploy_yam.get('postinstall', None)
 
         if not self.bscript:
-            self.bscript = self.deploy_yam.get('buildscript')
+            self.bscript = self.deploy_yam.get('buildscript', None)
 
         if not self.name:
             self.name = self.deploy_yam.get('name', self.repo)
@@ -205,6 +219,7 @@ class Sideloader:
         dest = os.path.join(package, self.install_location.lstrip('/'))
         supervisor = os.path.join(package, 'etc/supervisor/conf.d')
         nginx = os.path.join(package, 'etc/nginx/sites-enabled')
+        repo = os.path.join(self.workspace, self.repo)
 
         print self.build, '->', dest
 
@@ -304,59 +319,54 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
         depends = ""
 
         if self.deploy_type == 'virtualenv':
-            depdefaults = ['nginx', 'supervisor', 'python-virtualenv']
+            tailcmd = '--prefix / *'
+            dtype = 'dir'
+        elif self.deploy_type == 'python':
+            tailcmd = os.path.join(repo, 'setup.py')
+            dtype = 'python'
         else:
-            depdefaults = []
+            dtype = 'dir'
+            tailcmd = '--prefix / *'
 
-        deplist = self.deploy_yam.get('dependencies', depdefaults)
+        deplist = self.deploy_yam.get('dependencies', [])
 
         for dep in deplist:
             depends += ' -d "%s"' % dep
 
-        if self.package_target == 'deb':
-            if self.deploy_yam.get('user'):
-                user = '--deb-user %s ' % self.deploy_yam['user']
-            else:
-                user = ''
+        if self.deploy_yam.get('user'):
+            user = '--%s-user %s ' % (self.package_target,
+                self.deploy_yam['user'])
+        else:
+            user = ''
+
+        self.log("Building .deb package")
+
+        fpm = 'fpm -s %s -t %s -a amd64 -n %s -v %s --after-install %s %s %s %s' % (
+            dtype,
+            self.package_target,
+            self.name,
+            version,
+            postinstall,
+            depends,
+            user,
+            tailcmd
+        )
 
 
-            self.log("Building .deb package")
+        self.log(fpm)
 
-            fpm = 'fpm -s dir -t deb -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
-                self.name,
-                version,
-                postinstall,
-                depends,
-                user
-            )
+        # Jump out of virtualenv for fpm
+        oldpath = os.getenv('PATH')
+        os.putenv('PATH', oldpath.split(':',1)[-1])
+        os.system(fpm)
+        os.putenv('PATH', oldpath)
 
-            os.system(fpm)
-
+        if self.package_target=='deb':
             self.log("Signing package")
             # Sign the package, if we care
             key = self.sideloader_config.get('gpg_key')
             if key:
                 os.system('dpkg-sig -k %s --sign builder *.deb' % key)
-
-        elif self.package_target == 'rpm':
-            if self.deploy_yam.get('user'):
-                user = '--rpm-user %s ' % self.deploy_yam['user']
-            else:
-                user = ''
-
-            self.log("Building .rpm package")
-
-            fpm = 'fpm -s dir -t rpm -a amd64 -n %s -v %s --after-install %s --prefix / %s %s *' % (
-                self.name,
-                version,
-                postinstall,
-                depends,
-                user
-            )
-
-            os.system(fpm)
-        else:
-            self.log("Unknown package type %s" % self.package_target)
 
         self.log("Build completed successfully")
 
@@ -364,20 +374,21 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
         self.createWorkspace()
 
         self.log("Project config: " + repr(self.deploy_yam))
-        self.log("Launching build script")
 
-        buildscript = os.path.join(
-                self.workspace,
-                self.repo,
-                self.deploy_yam['buildscript']
-            )
+        if self.bscript:
+            self.log("Launching build script")
+            buildscript = os.path.join(
+                    self.workspace,
+                    self.repo,
+                    self.bscript
+                )
 
-        os.system('chmod a+x %s' % buildscript)
-        exit_status = os.system(buildscript)
-        # The high byte of the exit status is the process exit code.
-        exit_code = exit_status >> 8
-        if exit_code != 0:
-            self.fail_build("Build script exited with code %s" % exit_code)
+            os.system('chmod a+x %s' % buildscript)
+            exit_status = os.system(buildscript)
+            # The high byte of the exit status is the process exit code.
+            exit_code = exit_status >> 8
+            if exit_code != 0:
+                self.fail_build("Build script exited with code %s" % exit_code)
 
         self.createPackage()
 

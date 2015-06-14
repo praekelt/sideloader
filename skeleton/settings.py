@@ -139,7 +139,6 @@ INSTALLED_APPS = (
     # Uncomment the next line to enable admin documentation:
     # 'django.contrib.admindocs',
     'gunicorn',
-    'django_nose',
     'raven.contrib.django.raven_compat',
     'djcelery',
     'djcelery_email',
