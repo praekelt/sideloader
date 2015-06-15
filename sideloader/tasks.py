@@ -356,6 +356,12 @@ def build(build):
     if build.project.postinstall_script:
         args.extend(['--postinst-script', build.project.postinstall_script])
 
+    if build.project.package_manager:
+        args.extend(['--packman', build.project.package_manager])
+
+    if build.project.deploy_type:
+        args.extend(['--dtype', build.project.deploy_type])
+
     args.append(giturl)
 
     builder = subprocess.Popen(args,

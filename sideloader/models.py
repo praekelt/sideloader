@@ -38,6 +38,8 @@ class Project(models.Model):
     github_url = models.CharField(max_length=255)
     branch = models.CharField(max_length=255)
 
+    package_manager = models.CharField(max_length=64, default='deb')
+    deploy_type = models.CharField(max_length=64, default='virtualenv')
     deploy_file = models.CharField(max_length=255, default='.deploy.yaml')
     package_name = models.CharField(max_length=255, default='', blank=True)
     build_script = models.CharField(max_length=255, default='', blank=True)
