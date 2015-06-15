@@ -313,7 +313,7 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
         os.chdir(package)
 
         # Figure out a build version or use the one in self.deploy_file
-        version = self.deploy_yam.get('version', "0.%s" % self.build_num)
+        version = '-v %s' % self.deploy_yam.get('version', "0.%s" % self.build_num)
 
         # Build a dependency list
         depends = ""
@@ -323,6 +323,7 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
             dtype = 'dir'
         elif self.deploy_type == 'python':
             tailcmd = os.path.join(repo, 'setup.py')
+            version = ''
             dtype = 'python'
         else:
             dtype = 'dir'
@@ -341,7 +342,7 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
 
         self.log("Building .%s package" % self.package_target)
 
-        fpm = 'fpm -s %s -t %s -a amd64 -n %s -v %s --after-install %s %s %s %s' % (
+        fpm = 'fpm -s %s -t %s -a amd64 -n %s %s --after-install %s %s %s %s' % (
             dtype,
             self.package_target,
             self.name,
