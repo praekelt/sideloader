@@ -40,7 +40,7 @@ class Project(models.Model):
 
     package_manager = models.CharField(max_length=64, default='deb')
     deploy_type = models.CharField(max_length=64, default='virtualenv')
-    deploy_file = models.CharField(max_length=255, default='.deploy.yaml')
+    deploy_file = models.CharField(max_length=255, default='.deploy.yaml', blank=True)
     package_name = models.CharField(max_length=255, default='', blank=True)
     build_script = models.CharField(max_length=255, default='', blank=True)
     postinstall_script = models.CharField(
