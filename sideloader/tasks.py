@@ -43,13 +43,7 @@ class BuildProcess(protocol.ProcessProtocol):
         
         yield self.db.updateBuildLog(self.id, self.data)
 
-    def processExited(self, reason):
-        print "processExited, status %d" % (reason.value.exitCode,)
-        reactor.callLater(0, self.callback, reason.value.exitCode,
-            self.project_id, self.id, self.idhash)
-
     def processEnded(self, reason):
-        print "processEnded, status %d" % (reason.value.exitCode,)
         reactor.callLater(0, self.callback, reason.value.exitCode,
             self.project_id, self.id, self.idhash)
 
@@ -448,8 +442,6 @@ class Plugin(RhumbaPlugin):
         Use subprocess to execute a build, update the db with results along the way
         """
         
-        print params 
-
         build_id = params['build_id']
 
         state, build_file, project_id = yield self.db.getBuild(build_id)
