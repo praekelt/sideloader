@@ -6,14 +6,10 @@ nose
 django-nose
 django-haystack
 psycopg2
-celery
 redis
-django-debug-toolbar
-django-celery
-django-celery-email
 django-social-auth
 pep8
 pyflakes
-fabric
 pyyaml
 django-crispy-forms
+rhumba
