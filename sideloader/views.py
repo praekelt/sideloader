@@ -682,8 +682,14 @@ def api_build(request, hash):
         current_builds = models.Build.objects.filter(project=project, state=0)
         if not current_builds:
             build = models.Build.objects.create(project=project, state=0)
-            task = tasks.build.delay(build)
-            build.task_id = task.task_id
+
+            build.save()
+
+            taskid = RhumbaClient().queue('sideloader', 'build', {
+                'build_id': build.id
+            })
+
+            build.task_id = taskid
             build.save()
 
             return HttpResponse('{"result": "Building"}',
@@ -701,8 +707,10 @@ def api_sign(request, hash):
 
     if signoff.release.waiting:
         if signoff.release.check_signoff():
-            tasks.runRelease.delay(signoff.release)
-
+            taskid = RhumbaClient().queue('sideloader', 'runrelease', {
+                'release_id': signoff.release.id
+            })
+           
     return render(request, "sign.html", {
         'signoff': signoff
     })

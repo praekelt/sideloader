@@ -4,9 +4,9 @@
 import hashlib
 import base64
 import hmac
-import httplib
 import json
 
+from rhumba.client import HTTPRequest
 
 class SpecterClient(object):
     def __init__(self, host, auth, key, port=2400):
@@ -31,22 +31,6 @@ class SpecterClient(object):
 
         return base64.b64encode(mysig)
 
-    def httpsRequest(self, path, headers={}, method='GET', data=None):
-        headers['Content-Type'] = ['application/json']
-        conn = httplib.HTTPSConnection(self.host, self.port)
-
-        if data:
-            conn.request(method, '/'+path, data, headers)
-        else:
-            conn.request(method, '/'+path, None, headers)
-                
-        response = conn.getresponse()
-
-        if response.status == 200:
-            return json.loads(response.read())
-        else:
-            return None
-
     def signHeaders(self, path, data=None):
         sig = self.createSignature(path, data)
 
@@ -59,17 +43,15 @@ class SpecterClient(object):
         if a:
             path = path + '/' + '/'.join([str(i) for i in a])
 
-        return self.httpsRequest(
-            path,
-            headers=self.signHeaders(path)
+        return HTTPRequest().getJson(
+            'https://%s:%s/' % (self.host, self.port),
+            headers=self.signHeaders(path, data)
         )
 
     def postRequest(self, path, data, *a):
-        return self.httpsRequest(
-            path,
-            headers=self.signHeaders(path, data),
-            method='POST',
-            data=data
+        return HTTPRequest().getJson(
+            'https://%s:%s/' % (self.host, self.port), 
+            method='POST', data=data, headers=self.signHeaders(path, data)
         )
 
     def __getattr__(self, method):
