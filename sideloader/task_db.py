@@ -1,3 +1,5 @@
+import time
+
 from twisted.internet import defer, reactor, protocol
 from twisted.python import log
 from twisted.enterprise import adbapi
@@ -51,7 +53,6 @@ class SideloaderDB(object):
         if q:
             query += " WHERE " + ' and '.join(q)
 
-        print repr(query)
         results = yield self.p.runQuery(query % (
                 ','.join(fields),
                 table,
@@ -96,9 +97,10 @@ class SideloaderDB(object):
 
     @defer.inlineCallbacks
     def getBuild(self, id):
-        q = yield self.p.runQuery('SELECT state, build_file, project_id FROM sideloader_build WHERE id=%s', (id,))
+        r = yield self.select('sideloader_build', ['id', 'build_time',
+            'task_id', 'log', 'project_id', 'state', 'build_file'], id=id)
 
-        defer.returnValue(q[0])
+        defer.returnValue(r[0])
 
     @defer.inlineCallbacks
     def getBuildNumber(self, repo):
@@ -121,6 +123,47 @@ class SideloaderDB(object):
 
     def createRelease(self, release):
         return self.runInsert('sideloader_release', release)
+
+    def checkReleaseSchedule(self, release):
+        if not release['scheduled']:
+            return True
+
+        t = int(time.mktime(release['scheduled'].timetuple()))
+        if (time.time() - t) > 0:
+            return True
+        return False
+
+    @defer.inlineCallbacks
+    def releaseSignoffCount(self, release_id):
+        q = yield self.p.runQuery(
+            'SELECT COUNT(*) FROM sideloader_releasesignoff WHERE release_id=%s AND signed=true', (release_id))
+
+        defer.returnValue(q[0][0])
+
+
+    @defer.inlineCallbacks
+    def signoff_remaining(self, release_id, flow):
+        q = flow['quorum']
+
+        count = yield self.releaseSignoffCount(release_id)
+
+        email_list = self.getFlowSignoffList(flow)
+
+        if q == 0:
+            defer.returnValue(len(email_list) - count)
+
+        defer.returnValue(q - count)
+
+    @defer.inlineCallbacks
+    def checkReleaseSignoff(self, release_id, flow):
+        if not flow['require_signoff']:
+            defer.returnValue(True)
+
+        rem = yield self.signoff_remaining(release_id, flow)
+        if rem > 0:
+            defer.returnValue(False)
+
+        defer.returnValue(True)
 
     @defer.inlineCallbacks
     def countReleases(self, id, waiting=False, lock=False):
@@ -175,6 +218,10 @@ class SideloaderDB(object):
         else:
             defer.returnValue(None)
 
+    def getFlowSignoffList(self, flow):
+        return flow['signoff_list'].replace('\r', ' ').replace(
+            '\n', ' ').replace(',', ' ').strip().split()
+
     def getAutoFlows(self, project):
         return self.select('sideloader_releaseflow', [
             'id', 'name', 'stream_mode', 'require_signoff', 'signoff_list',
@@ -185,7 +232,7 @@ class SideloaderDB(object):
 
     @defer.inlineCallbacks
     def getNextFlowRelease(self, flow_id):
-        q = yield self.p.runQuery('SELECT release_id FROM sideloader_release'
+        q = yield self.p.runQuery('SELECT id FROM sideloader_release'
             ' WHERE flow_id=%s AND waiting=true ORDER BY release_date DESC LIMIT 1', (flow_id,)
         )
 
@@ -198,7 +245,7 @@ class SideloaderDB(object):
 
     @defer.inlineCallbacks
     def getLastFlowRelease(self, flow_id):
-        q = yield self.p.runQuery('SELECT release_id FROM sideloader_release'
+        q = yield self.p.runQuery('SELECT id FROM sideloader_release'
             ' WHERE flow_id=%s AND waiting=false ORDER BY release_date DESC LIMIT 1', (flow_id,)
         )
 

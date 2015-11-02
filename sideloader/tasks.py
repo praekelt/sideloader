@@ -17,6 +17,7 @@ from twisted.python import log
 from twisted.enterprise import adbapi
 
 from rhumba.plugin import RhumbaPlugin, fork
+from rhumba import cron
 
 
 class BuildProcess(protocol.ProcessProtocol):
@@ -80,7 +81,7 @@ class Plugin(RhumbaPlugin):
             ) = yield self.db.getProjectNotificationSettings(project_id)
         
         if notify:
-            logger.info("Sending notification %s" % repr(message))
+            self.log("Sending notification %s" % repr(message))
             if settings.SLACK_TOKEN:
                 if slack_channel:
                     channel = slack_channel
@@ -103,17 +104,17 @@ class Plugin(RhumbaPlugin):
 
         return self.sendEmail(to, cont, '%s release approval - action required' % name)
 
-    def sendScheduleNotification(to, release):
+    def sendScheduleNotification(to, release, flow, project):
         cont = 'A %s release for %s has been scheduled for %s UTC' % (
-            release.flow.name,
-            release.flow.project.name,
-            release.scheduled
+            flow['name'],
+            project['name'],
+            str(release['scheduled'])
         )
 
         yield sendEmail(to, cont, '%s %s release scheduled - %s UTC' % (
-            release.flow.project.name,
-            release.flow.name,
-            release.scheduled
+            project['name'],
+            flow['name'],
+            release['scheduled']
         ))
 
     def call_release(self, params):
@@ -145,9 +146,11 @@ class Plugin(RhumbaPlugin):
                     flow['name']
                 ), flow['project_id'])
 
+            project = yield self.db.getProject(flow['project_id'])
+
             for name, email in settings.ADMINS:
                 reactor.callLater(
-                    0, self.sendScheduleNotification, email, release)
+                    0, self.sendScheduleNotification, email, release, flow, project)
 
         if flow['require_signoff']:
             # Create a signoff release
@@ -179,7 +182,7 @@ class Plugin(RhumbaPlugin):
         for target in targets:
             server = yield self.db.getServer(target['server_id'])
 
-            logger.info("Deploing release %s to target %s" % (repr(release), target.server.name))
+            self.log("Deploing release %s to target %s" % (repr(release), server['name']))
 
             build = yield self.db.getBuild(release['build_id'])
 
@@ -244,10 +247,10 @@ class Plugin(RhumbaPlugin):
                         puppet = yield sc.get_puppet_run()
                         puppet = puppet['stdout']
 
-                    if flow.service_pre_stop:
+                    if flow['service_pre_stop']:
                         start = yield sc.get_all_start()
                         start = start['stdout']
-                    elif flow.service_restart:
+                    elif flow['service_restart']:
                         r1 = yield sc.get_all_stop()
                         r2 = yield sc.get_all_start()
 
@@ -285,25 +288,25 @@ class Plugin(RhumbaPlugin):
         yield self.db.updateReleaseState(release['id'])
 
     @defer.inlineCallbacks
-    def streamRelease(release):
+    def streamRelease(self, release):
         build = yield self.db.getBuild(release['build_id'])
         flow = yield self.db.getFlow(release['flow_id'])
+        stream = yield self.db.getReleaseStream(flow['stream_id'])
 
         yield self.sendNotification('Pushing build %s to %s stream' % (
-            release.build['build_file'],
-            release.flow.stream.name
-        ), release.flow.project)
+            build['build_file'],
+            stream['name']
+        ), flow['project_id'])
         # Stream release
 
-        stream = yield self.getReleaseStream(flow['stream_id'])
         push_cmd = stream['push_command']
-        yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
-            '/workspace/packages/', release.build.build_file)))
+        result = yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
+            '/workspace/packages/', build['build_file'])))
 
         yield self.db.updateReleaseState(release['id'])
 
     @defer.inlineCallbacks
-    def cleanReleases(self, release):
+    def cleanRelease(self, release):
         if release['waiting']:
             flow = yield self.db.getFlow(release['flow_id'])
             next_release = yield self.db.getNextFlowRelease(release['flow_id'])
@@ -325,14 +328,16 @@ class Plugin(RhumbaPlugin):
         if release['waiting']:
             flow = yield self.db.getFlow(release['flow_id'])
 
-            if release.check_schedule() and release.check_signoff():
+            signoff = yield self.db.checkReleaseSignoff(release['id'], flow)
+
+            if self.db.checkReleaseSchedule(release) and signoff:
                 yield self.db.updateReleaseLocks(release['id'], True)
 
                 # Release the build
-                if flow.stream_mode == 0:
+                if flow['stream_mode'] == 0:
                     # Stream only
                     yield self.streamRelease(release)
-                elif flow.stream_mode == 2:
+                elif flow['stream_mode'] == 2:
                     # Stream and targets
                     yield self.streamRelease(release)
                     yield self.pushTargets(release, flow)
@@ -340,21 +345,22 @@ class Plugin(RhumbaPlugin):
                     # Target only
                     yield self.pushTargets(release, flow)
 
-                yield self.db.updateReleaseLocks(release['id'], True)
+                yield self.db.updateReleaseLocks(release['id'], False)
 
+    @cron(secs="*/10")
     @defer.inlineCallbacks
     def call_checkreleases(self, params):
         releases = yield self.db.getReleases(waiting=True, lock=False)
-        logger.info("Release queue is at %s" % len(releases))
+        #self.log("Release queue is at %s" % len(releases))
 
         skip = []
 
         # Clean old releases
         for release in releases:
-            yield self.cleanReleases(release)
+            yield self.cleanRelease(release)
 
             current = yield self.db.countReleases(
-                flowid=release['flow_id'], waiting=True, lock=True)
+                release['flow_id'], waiting=True, lock=True)
 
             if current > 0:
                 self.log("Skipping release %s on this run - %s in queue" % (
@@ -369,9 +375,10 @@ class Plugin(RhumbaPlugin):
         #    yield self.db.updateReleaseLocks(release['id'], True)
 
         for release in releases:
-            logger.info("Running release %s" % repr(release))
+            self.log("Running release %s" % repr(release))
             # XXX Use client queue
-            reactor.callLater(0, runRelease, release)
+            reactor.callLater(0, self.call_runrelease, 
+                {'release_id': release['id']})
 
     @defer.inlineCallbacks
     def endBuild(self, code, project_id, build_id, idhash):
@@ -434,7 +441,9 @@ class Plugin(RhumbaPlugin):
         
         build_id = params['build_id']
 
-        state, build_file, project_id = yield self.db.getBuild(build_id)
+        build = yield self.db.getBuild(build_id)
+
+        project_id = build['project_id']
 
         if project_id in self.build_locks:
             if (time.time() - self.build_locks[project_id]) < 1800:
