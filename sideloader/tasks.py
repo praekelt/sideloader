@@ -3,6 +3,7 @@ import uuid
 import shutil
 import sys
 import time
+import datetime
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
@@ -131,33 +132,41 @@ class Plugin(RhumbaPlugin):
             'flow_id': flow_id,
             'build_id': build_id,
             'waiting': True,
-            'scheduled': scheduled
+            'scheduled': scheduled,
+            'release_date': datetime.datetime.now(),
+            'lock': False
         })
 
         if scheduled:
-            self.sendNotification.delay('Deployment scheduled for build %s at %s UTC to %s' % (
-                release.build.build_file,
-                release.scheduled,
-                release.flow.name
-            ), release.flow.project)
+            reactor.callLater(0, self.sendNotification,
+                'Deployment scheduled for build %s at %s UTC to %s' % (
+                    build['build_file'],
+                    release['scheduled'],
+                    flow['name']
+                ), flow['project_id'])
 
             for name, email in settings.ADMINS:
-                sendScheduleNotification.delay(email, release)
+                reactor.callLater(
+                    0, self.sendScheduleNotification, email, release)
 
-        if flow.require_signoff:
+        if flow['require_signoff']:
             # Create a signoff release
             # Turn whatever junk is in the email text into a list
-            users = flow.email_list()
+            users = flow['signoff_list'].replace('\r', ' ').replace(
+                        '\n', ' ').replace(',', ' ').strip().split()
+
+            project = yield self.db.getProject(flow['project_id'])
 
             for email in users:
-                so = models.ReleaseSignoff.objects.create(
-                    release=release,
-                    signature=email,
-                    idhash=uuid.uuid1().get_hex(),
-                    signed=False
-                )
-                so.save()
-                yield self.sendSignEmail(email, build.project.name, flow.name, so.idhash)
+                h = uuid.uuid1().get_hex()
+                so_id = yield self.db.createReleaseSignoff({
+                    'release_id': release_id,
+                    'signature': email,
+                    'idhash': h,
+                    'signed': False
+                })
+                reactor.callLater(0, self.sendSignEmail,
+                    email, project['name'], flow['name'], h)
 
     @defer.inlineCallbacks
     def pushTargets(self, release, flow):

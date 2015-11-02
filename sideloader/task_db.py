@@ -163,12 +163,17 @@ class SideloaderDB(object):
         return self.p.runOperation('UPDATE sideloader_release SET lock=%s, waiting=%s WHERE id=%s', (lock, waiting, id))
 
     # Flow queries
-
+    @defer.inlineCallbacks
     def getFlow(self, id):
-        return self.select('sideloader_releaseflow', [
+        r = yield self.select('sideloader_releaseflow', [
             'id', 'name', 'stream_mode', 'require_signoff', 'signoff_list',
             'quorum', 'service_restart', 'service_pre_stop', 'puppet_run',
             'auto_release', 'project_id', 'stream_id'], id=id)
+
+        if r:
+            defer.returnValue(r[0])
+        else:
+            defer.returnValue(None)
 
     def getAutoFlows(self, project):
         return self.select('sideloader_releaseflow', [
