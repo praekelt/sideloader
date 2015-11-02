@@ -424,7 +424,7 @@ def workflow_push(request, flow, build):
     if (request.user.is_superuser) or (
         project in request.user.project_set.all()):
         
-        RhumbaClient().queue('sideloader', 'doRelease', {
+        RhumbaClient().queue('sideloader', 'release', {
             'build_id': build.id, 
             'flow_id': flow.id
         })

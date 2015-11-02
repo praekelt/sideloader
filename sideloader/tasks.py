@@ -14,7 +14,7 @@ from twisted.internet import defer, reactor, protocol
 from twisted.python import log
 from twisted.enterprise import adbapi
 
-from rhumba import RhumbaPlugin
+from rhumba.plugin import RhumbaPlugin, fork
 
 
 class BuildProcess(protocol.ProcessProtocol):
@@ -51,7 +51,9 @@ class Plugin(RhumbaPlugin):
     def __init__(self, *a):
         RhumbaPlugin.__init__(self, *a)
 
-        self.db = SideloaderDB()
+        self.db = task_db.SideloaderDB()
+
+        self.build_locks = {}
 
     @defer.inlineCallbacks
     def sendEmail(self, to, content, subject):
@@ -112,16 +114,24 @@ class Plugin(RhumbaPlugin):
             release.scheduled
         ))
 
-    @defer.inlineCallbacks
-    def doRelease(self, build, flow, scheduled=None):
-        release = models.Release.objects.create(
-            flow=flow,
-            build=build,
-            waiting=True,
-            scheduled=scheduled
+    def call_release(self, params):
+        return self.doRelease(
+            params['build_id'],
+            params['flow_id'],
+            scheduled=params.get('schedule', None)
         )
 
-        release.save()
+    @defer.inlineCallbacks
+    def doRelease(self, build_id, flow_id, scheduled=None):
+        build = yield self.db.getBuild(build_id)
+        flow = yield self.db.getFlow(flow_id)
+
+        release_id = yield self.db.createRelease({
+            'flow_id': flow_id,
+            'build_id': build_id,
+            'waiting': True,
+            'scheduled': scheduled
+        })
 
         if scheduled:
             self.sendNotification.delay('Deployment scheduled for build %s at %s UTC to %s' % (
@@ -269,7 +279,6 @@ class Plugin(RhumbaPlugin):
         build = yield self.db.getBuild(release['build_id'])
         flow = yield self.db.getFlow(release['flow_id'])
 
-        release = 
         yield self.sendNotification('Pushing build %s to %s stream' % (
             release.build['build_file'],
             release.flow.stream.name
@@ -278,8 +287,8 @@ class Plugin(RhumbaPlugin):
 
         stream = yield self.getReleaseStream(flow['stream_id'])
         push_cmd = stream['push_command']
-        os.system(push_cmd % os.path.join(
-            '/workspace/packages/', release.build.build_file))
+        yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
+            '/workspace/packages/', release.build.build_file)))
 
         yield self.db.updateReleaseState(release['id'])
 
@@ -344,7 +353,7 @@ class Plugin(RhumbaPlugin):
 
         # Lock all the release objects we now see
         r = yield self.db.getReleases(waiting=True, lock=False)
-        releases = [i for i in r where i['id'] not in skip]
+        releases = [i for i in r if i['id'] not in skip]
 
         #for release in releases:
         #    yield self.db.updateReleaseLocks(release['id'], True)
@@ -359,6 +368,8 @@ class Plugin(RhumbaPlugin):
         workspace = os.path.join('/workspace', idhash)
         package = os.path.join(workspace, 'package')
         packages = '/workspace/packages'
+
+        del self.build_locks[project_id]
 
         if code != 0:
             yield self.db.setBuildState(build_id, 2)
@@ -400,11 +411,10 @@ class Plugin(RhumbaPlugin):
 
                 # Find any auto-release streams
                 # XXX Implement auto flow XXX
-                #flows = build.project.releaseflow_set.filter(auto_release=True)
-                #if flows:
-                #    build.save()
-                #    for flow in flows:
-                #        doRelease.delay(build, flow)
+                flows = yield self.db.getAutoFlows(project_id)
+                if flows:
+                    for flow in flows:
+                        reactor.callLater(0, self.doRelease, build_id, flow['id'])
 
     @defer.inlineCallbacks
     def call_build(self, params):
@@ -415,6 +425,13 @@ class Plugin(RhumbaPlugin):
         build_id = params['build_id']
 
         state, build_file, project_id = yield self.db.getBuild(build_id)
+
+        if project_id in self.build_locks:
+            if (time.time() - self.build_locks[project_id]) < 1800:
+                # Don't build
+                defer.returnValue(None)
+
+        self.build_locks[project_id] = time.time()
 
         project = yield self.db.getProject(project_id)
         

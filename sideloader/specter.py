@@ -6,7 +6,7 @@ import base64
 import hmac
 import json
 
-from rhumba.client import HTTPRequest
+from rhumba.plugin import HTTPRequest
 
 class SpecterClient(object):
     def __init__(self, host, auth, key, port=2400):
