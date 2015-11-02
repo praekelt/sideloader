@@ -23,7 +23,7 @@ class SideloaderDB(object):
 
     def fetchOne(self, *a, **kw):
         " Fetch one row only with this query "
-        return self.dbpool.runInteraction(self._fetchOneTxn, *a, **kw)
+        return self.p.runInteraction(self._fetchOneTxn, *a, **kw)
 
     def runInsert(self, table, keys):
         " Builds a boring INSERT statement and runs it "
@@ -43,14 +43,15 @@ class SideloaderDB(object):
         q = []
         args = []
         for k, v in kw.items():
-            q.append('%s=%%s' % k)
+            q.append('%s=%%%%s' % k)
             args.append(v)
 
         query = "SELECT %s FROM %s" 
 
         if q:
-            query += " WHERE %s" % 'and'.join(q)
+            query += " WHERE " + ' and '.join(q)
 
+        print repr(query)
         results = yield self.p.runQuery(query % (
                 ','.join(fields),
                 table,
@@ -71,7 +72,7 @@ class SideloaderDB(object):
 
     @defer.inlineCallbacks
     def getProject(self, id):
-        r = yield self.db.select('sideloader_project',
+        r = yield self.select('sideloader_project',
             ['id', 'name', 'github_url', 'branch', 'deploy_file', 'idhash',
             'notifications', 'slack_channel', 'created_by_user_id',
             'release_stream_id', 'build_script', 'package_name',

@@ -2,6 +2,7 @@ import os
 import uuid
 import shutil
 import sys
+import time
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
@@ -435,7 +436,7 @@ class Plugin(RhumbaPlugin):
 
         project = yield self.db.getProject(project_id)
         
-        chunks = project.giturl.split(':')[1].split('/')
+        chunks = project['github_url'].split(':')[1].split('/')
         repo = chunks[-1][:-4]
 
         # Get a build number
@@ -452,38 +453,38 @@ class Plugin(RhumbaPlugin):
         # Figure out some directory paths
 
         if settings.DEBUG:
-            print "Executing build %s %s" % (giturl, branch)
+            print "Executing build %s %s" % (project['github_url'], project['branch'])
 
         reactor.callLater(0, self.sendNotification, 
             'Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
-                settings.SIDELOADER_DOMAIN, build_id, build_id, project.branch
+                settings.SIDELOADER_DOMAIN, build_id, build_id, project['branch']
             ), project_id)
 
-        args = ['build_package', '--branch', project.branch, '--build', str(build_num), '--id', project.idhash]
+        args = ['build_package', '--branch', project['branch'], '--build', str(build_num), '--id', project['idhash']]
 
-        if deploy_file:
-            args.extend(['--deploy-file', project.deploy_file])
+        if project['deploy_file']:
+            args.extend(['--deploy-file', project['deploy_file']])
 
-        if package_name:
-            args.extend(['--name', project.package_name])
+        if project['package_name']:
+            args.extend(['--name', project['package_name']])
 
-        if build_script:
-            args.extend(['--build-script', project.build_script])
+        if project['build_script']:
+            args.extend(['--build-script', project['build_script']])
 
-        if postinstall_script:
-            args.extend(['--postinst-script', project.postinstall_script])
+        if project['postinstall_script']:
+            args.extend(['--postinst-script', project['postinstall_script']])
 
-        if package_manager:
-            args.extend(['--packman', project.package_manager])
+        if project['package_manager']:
+            args.extend(['--packman', project['package_manager']])
 
-        if deploy_type:
-            args.extend(['--dtype', project.deploy_type])
+        if project['deploy_type']:
+            args.extend(['--dtype', project['deploy_type']])
 
-        args.append(giturl)
+        args.append(project['github_url'])
 
         self.log('Spawning build %s: %s :: %s %s' % (build_id, local, buildpack, repr(args)))
 
-        buildProcess = BuildProcess(build_id, project_id, project.idhash, self.db, self.endBuild)
+        buildProcess = BuildProcess(build_id, project_id, project['idhash'], self.db, self.endBuild)
 
         proc = reactor.spawnProcess(buildProcess, buildpack, args=args, path=local, env=os.environ)
 
