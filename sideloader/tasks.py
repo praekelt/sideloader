@@ -176,7 +176,7 @@ class Plugin(RhumbaPlugin):
         """
         Pushes a release using Specter
         """
-        targets = yield self.db.getFlowTargets(release['id'])
+        targets = yield self.db.getFlowTargets(flow['id'])
         project = yield self.db.getProject(flow['project_id'])
 
         for target in targets:
@@ -324,7 +324,6 @@ class Plugin(RhumbaPlugin):
     @defer.inlineCallbacks
     def call_runrelease(self, params):
         release = yield self.db.getRelease(params['release_id'])
-
         if release['waiting']:
             flow = yield self.db.getFlow(release['flow_id'])
 
@@ -332,6 +331,7 @@ class Plugin(RhumbaPlugin):
 
             if self.db.checkReleaseSchedule(release) and signoff:
                 yield self.db.updateReleaseLocks(release['id'], True)
+
 
                 # Release the build
                 if flow['stream_mode'] == 0:
