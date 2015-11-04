@@ -2,412 +2,507 @@ import os
 import uuid
 import shutil
 import sys
-import subprocess
-
-import smtplib
+import time
+import datetime
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 
-from django.conf import settings
-from sideloader import models, specter, slack
-from celery import task
-from celery.utils.log import get_task_logger
+from sideloader import specter, slack, task_db
+from skeleton import settings
 
-logger = get_task_logger(__name__)
+from twisted.mail.smtp import sendmail
+from twisted.internet import defer, reactor, protocol
+from twisted.python import log
+from twisted.enterprise import adbapi
 
-@task(time_limit=10)
-def sendNotification(message, project):
-    if project.notifications:
-        logger.info("Sending notification %s" % repr(message))
-        if settings.SLACK_TOKEN:
-            if project.slack_channel:
-                channel = project.slack_channel
-            else:
-                channel=settings.SLACK_CHANNEL
+from rhumba.plugin import RhumbaPlugin, fork
+from rhumba import cron
 
-            sc = slack.SlackClient(settings.SLACK_HOST,
-                    settings.SLACK_TOKEN, channel)
 
-            sc.message(project.name + ": " + message)
+class BuildProcess(protocol.ProcessProtocol):
+    def __init__(self, id, prjid, idhash, db, callback):
+        self.id = id
+        self.project_id = prjid
+        self.idhash = idhash
+        self.db = db
+        self.data = ""
+        self.callback = callback
 
-@task(time_limit=60)
-def sendEmail(to, content, subject):
-    start = '<html><head></head><body style="font-family:arial,sans-serif;">'
-    end = '</body></html>'
+    def log(self, msg):
+        log.msg('[%s] %s' % (self.id, msg))
 
-    cont = MIMEText(start+content+end, 'html')
+    @defer.inlineCallbacks
+    def outReceived(self, data):
+        self.log(data)
+        self.data = self.data + data
 
-    msg = MIMEMultipart('related')
+        yield self.db.updateBuildLog(self.id, self.data)
 
-    msg['Subject'] = subject
-    msg['From'] = settings.SIDELOADER_FROM
-    msg['To'] = to
-    msg.attach(cont)
-
-    s = smtplib.SMTP()
-    s.connect()
-    s.sendmail(msg['From'], msg['To'], msg.as_string())
-    s.close()
-
-@task(time_limit=60)
-def sendSignEmail(to, name, release, h):
-    cont = 'A build release has been requested for "%s" to release stream "%s".<br/><br/>' % (name, release)
-    cont += "You are listed as a contact to approve this release. "
-    cont += "If you would like to do so please click the link below,"
-    cont += " if you do not agree then simply ignore this mail.<br/><br/>"
-
-    cont += "http://%s/api/rap/%s" % (settings.SIDELOADER_DOMAIN, h)
-
-    sendEmail(to, cont, '%s release approval - action required' % name)
-
-@task(time_limit=60)
-def sendScheduleNotification(to, release):
-    cont = 'A %s release for %s has been scheduled for %s UTC' % (
-        release.flow.name,
-        release.flow.project.name,
-        release.scheduled
-    )
-
-    sendEmail(to, cont, '%s %s release scheduled - %s UTC' % (
-        release.flow.project.name,
-        release.flow.name,
-        release.scheduled
-    ))
-
-@task(time_limit=60)
-def doRelease(build, flow, scheduled=None):
-    release = models.Release.objects.create(
-        flow=flow,
-        build=build,
-        waiting=True,
-        scheduled=scheduled
-    )
-
-    release.save()
-
-    if scheduled:
-        sendNotification.delay('Deployment scheduled for build %s at %s UTC to %s' % (
-            release.build.build_file,
-            release.scheduled,
-            release.flow.name
-        ), release.flow.project)
-
-        for name, email in settings.ADMINS:
-            sendScheduleNotification.delay(email, release)
-
-    if flow.require_signoff:
-        # Create a signoff release
-        # Turn whatever junk is in the email text into a list
-        users = flow.email_list()
-
-        for email in users:
-            so = models.ReleaseSignoff.objects.create(
-                release=release,
-                signature=email,
-                idhash=uuid.uuid1().get_hex(),
-                signed=False
-            )
-            so.save()
-            sendSignEmail.delay(email, build.project.name, flow.name, so.idhash)
-
-@task(time_limit=1800)
-def pushTargets(release, flow):
-    """
-    Pushes a release using Specter
-    """
-    targets = flow.target_set.all()
-
-    for target in targets:
-
-        logger.info("Deploing release %s to target %s" % (repr(release), target.server.name))
-
-        sendNotification.delay('Deployment started for build %s -> %s' % (
-            release.build.build_file,
-            target.server.name
-        ), release.flow.project)
-
-        server = target.server
-
-        target.deploy_state=1
-        target.save()
-
-        sc = specter.SpecterClient(target.server.name,
-                settings.SPECTER_AUTHCODE, settings.SPECTER_SECRET)
-
-        url = target.release.project.github_url
-        package = url.split(':')[1].split('/')[-1][:-4]
+    @defer.inlineCallbacks
+    def errReceived(self, data):
+        self.log(data)
+        self.data = self.data + data
         
-        url = "%s/%s" % (
-            settings.SIDELOADER_PACKAGEURL, 
-            release.build.build_file
+        yield self.db.updateBuildLog(self.id, self.data)
+
+    def processEnded(self, reason):
+        reactor.callLater(0, self.callback, reason.value.exitCode,
+            self.project_id, self.id, self.idhash)
+
+class Plugin(RhumbaPlugin):
+    def __init__(self, *a):
+        RhumbaPlugin.__init__(self, *a)
+
+        self.db = task_db.SideloaderDB()
+
+        self.build_locks = {}
+
+    @defer.inlineCallbacks
+    def sendEmail(self, to, content, subject):
+        start = '<html><head></head><body style="font-family:arial,sans-serif;">'
+        end = '</body></html>'
+
+        cont = MIMEText(start+content+end, 'html')
+
+        msg = MIMEMultipart('related')
+
+        msg['Subject'] = subject
+        msg['From'] = settings.SIDELOADER_FROM
+        msg['To'] = to
+        msg.attach(cont)
+
+        yield sendmail(msg['From'], msg['To'], msg.as_string())
+
+    @defer.inlineCallbacks
+    def sendNotification(self, message, project_id):
+        defer.returnValue(None)
+        (name, notify, slack_channel
+            ) = yield self.db.getProjectNotificationSettings(project_id)
+        
+        if notify:
+            self.log("Sending notification %s" % repr(message))
+            if settings.SLACK_TOKEN:
+                if slack_channel:
+                    channel = slack_channel
+                else:
+                    channel=settings.SLACK_CHANNEL
+
+                sc = slack.SlackClient(settings.SLACK_HOST,
+                        settings.SLACK_TOKEN, channel)
+
+                yield sc.message(name + ": " + message)
+
+
+    def sendSignEmail(self, to, name, release, h):
+        cont = 'A build release has been requested for "%s" to release stream "%s".<br/><br/>' % (name, release)
+        cont += "You are listed as a contact to approve this release. "
+        cont += "If you would like to do so please click the link below,"
+        cont += " if you do not agree then simply ignore this mail.<br/><br/>"
+
+        cont += "http://%s/api/rap/%s" % (settings.SIDELOADER_DOMAIN, h)
+
+        return self.sendEmail(to, cont, '%s release approval - action required' % name)
+
+    def sendScheduleNotification(to, release, flow, project):
+        cont = 'A %s release for %s has been scheduled for %s UTC' % (
+            flow['name'],
+            project['name'],
+            str(release['scheduled'])
         )
 
-        stop, start, restart, puppet = "", "", "", ""
+        yield sendEmail(to, cont, '%s %s release scheduled - %s UTC' % (
+            project['name'],
+            flow['name'],
+            release['scheduled']
+        ))
 
-        try:
-            if flow.service_pre_stop:
-                stop = sc.get_all_stop()['stdout']
+    def call_release(self, params):
+        return self.doRelease(
+            params['build_id'],
+            params['flow_id'],
+            scheduled=params.get('schedule', None)
+        )
 
-            result = sc.post_install({
-                'package': package,
-                'url': url
-            })
+    @defer.inlineCallbacks
+    def doRelease(self, build_id, flow_id, scheduled=None):
+        build = yield self.db.getBuild(build_id)
+        flow = yield self.db.getFlow(flow_id)
 
-            if ('error' in result) or (result.get('code',2) > 0) or (
-                result.get('stderr') and not result.get('stdout')):
-                # Errors during deployment
-                target.deploy_state=3
-                if 'error' in result:
-                    target.log = '\n'.join([stop, result['error']])
+        release_id = yield self.db.createRelease({
+            'flow_id': flow_id,
+            'build_id': build_id,
+            'waiting': True,
+            'scheduled': scheduled,
+            'release_date': datetime.datetime.now(),
+            'lock': False
+        })
+
+        if scheduled:
+            reactor.callLater(0, self.sendNotification,
+                'Deployment scheduled for build %s at %s UTC to %s' % (
+                    build['build_file'],
+                    release['scheduled'],
+                    flow['name']
+                ), flow['project_id'])
+
+            project = yield self.db.getProject(flow['project_id'])
+
+            for name, email in settings.ADMINS:
+                reactor.callLater(
+                    0, self.sendScheduleNotification, email, release, flow, project)
+
+        if flow['require_signoff']:
+            # Create a signoff release
+            # Turn whatever junk is in the email text into a list
+            users = flow['signoff_list'].replace('\r', ' ').replace(
+                        '\n', ' ').replace(',', ' ').strip().split()
+
+            project = yield self.db.getProject(flow['project_id'])
+
+            for email in users:
+                h = uuid.uuid1().get_hex()
+                so_id = yield self.db.createReleaseSignoff({
+                    'release_id': release_id,
+                    'signature': email,
+                    'idhash': h,
+                    'signed': False
+                })
+                reactor.callLater(0, self.sendSignEmail,
+                    email, project['name'], flow['name'], h)
+
+    @defer.inlineCallbacks
+    def pushTargets(self, release, flow):
+        """
+        Pushes a release using Specter
+        """
+        targets = yield self.db.getFlowTargets(flow['id'])
+        project = yield self.db.getProject(flow['project_id'])
+
+        for target in targets:
+            server = yield self.db.getServer(target['server_id'])
+
+            self.log("Deploing release %s to target %s" % (repr(release), server['name']))
+
+            build = yield self.db.getBuild(release['build_id'])
+
+            yield self.sendNotification('Deployment started for build %s -> %s' % (
+                build['build_file'],
+                server['name']
+            ), project['id'])
+
+            yield self.db.updateTargetState(target['id'], 1)
+
+            sc = specter.SpecterClient(server['name'],
+                    settings.SPECTER_AUTHCODE, settings.SPECTER_SECRET)
+
+            if project['package_name']:
+                package = project['package_name']
+            else:
+                url = project['github_url']
+                package = url.split(':')[1].split('/')[-1][:-4]
+            
+            url = "%s/%s" % (
+                settings.SIDELOADER_PACKAGEURL, 
+                build['build_file']
+            )
+
+            stop, start, restart, puppet = "", "", "", ""
+
+            try:
+                if flow['service_pre_stop']:
+                    stop = yield sc.get_all_stop()['stdout']
+
+                result = yield sc.post_install({
+                    'package': package,
+                    'url': url
+                })
+
+                if ('error' in result) or (result.get('code',2) > 0) or (
+                    result.get('stderr') and not result.get('stdout')):
+                    # Errors during deployment
+                    yield self.db.updateTargetState(target['id'], 3)
+
+                    if 'error' in result:
+                        yield self.db.updateTargetLog(target['id'], 
+                            '\n'.join([stop, result['error']])
+                        )
+                    else:
+                        yield self.db.updateTargetLog(target['id'], 
+                            '\n'.join([
+                                stop, result['stdout'], result['stderr']
+                            ])
+                        )
+
+                    yield self.sendNotification('Deployment of build %s to %s failed!' % (
+                        build['build_file'], server['name']
+                    ), project['id'])
+
+                    # Start services back up even on failure
+                    if flow['service_pre_stop']:
+                        start = yield sc.get_all_start()
+                        start = start['stdout']
                 else:
-                    target.log = '\n'.join([
-                        stop, result['stdout'], result['stderr']
-                    ])
-                target.save()
-                sendNotification.delay('Deployment of build %s to %s failed!' % (
-                    release.build.build_file,
-                    target.server.name
-                ), release.flow.project)
+                    if flow['puppet_run']:
+                        puppet = yield sc.get_puppet_run()
+                        puppet = puppet['stdout']
 
-                # Start services back up even on failure
-                if flow.service_pre_stop:
-                    start = sc.get_all_start()['stdout']
-            else:
-                if flow.puppet_run:
-                    puppet = sc.get_puppet_run()['stdout']
+                    if flow['service_pre_stop']:
+                        start = yield sc.get_all_start()
+                        start = start['stdout']
+                    elif flow['service_restart']:
+                        r1 = yield sc.get_all_stop()
+                        r2 = yield sc.get_all_start()
 
-                if flow.service_pre_stop:
-                    start = sc.get_all_start()['stdout']
-                elif flow.service_restart:
-                    restart = sc.get_all_stop()['stdout']
-                    restart += sc.get_all_start()['stdout']
+                        result = r1['stdout'] + r2['stdout']
 
-                target.deploy_state=2
-                target.log = '\n'.join([
-                    stop, result['stdout'], result['stderr'], puppet, start, restart
-                ])
-                target.current_build = release.build
-                target.save()
-                sendNotification.delay('Deployment of build %s to %s complete' % (
-                    release.build.build_file,
-                    target.server.name
-                ), release.flow.project)
+                    yield self.db.updateTargetState(target['id'], 2)
 
-            server.specter_status = "Reachable"
+                    yield self.db.updateTargetLog(target['id'],
+                        '\n'.join([
+                            stop, result['stdout'], result['stderr'], puppet, start, restart
+                        ])
+                    )
 
-        except Exception, e:
-            target.log = str(e)
-            target.deploy_state=3
-            target.save()
+                    yield self.db.updateTargetBuild(target['id'], build['id'])
 
-            server.specter_status = str(e)
-           
-            sendNotification.delay('Deployment of build %s to %s failed!' % (
-                release.build.build_file,
-                target.server.name
-            ), release.flow.project)
+                    yield self.sendNotification('Deployment of build %s to %s complete' % (
+                        build['build_file'],
+                        server['name']
+                    ), project['id'])
 
-        server.save()
+                yield self.db.updateServerStatus(server['id'], "Reachable")
 
-    release.lock = False
-    release.waiting = False
-    release.save()
+            except Exception, e:
+                yield self.db.updateTargetLog(target['id'], str(e))
+                yield self.db.updateTargetState(target['id'], 3)
 
-@task(time_limit=300)
-def streamRelease(release):
-    sendNotification.delay('Pushing build %s to %s stream' % (
-        release.build.build_file,
-        release.flow.stream.name
-    ), release.flow.project)
-    # Stream release
-    push_cmd = release.flow.stream.push_command
-    os.system(push_cmd % os.path.join(
-        '/workspace/packages/', release.build.build_file))
+                yield self.db.updateServerStatus(server['id'], str(e))
+               
+                yield self.sendNotification('Deployment of build %s to %s failed!' % (
+                    build['build_file'],
+                    server['name']
+                ), project['id'])
 
-    release.lock = False
-    release.waiting = False
-    release.save()
 
-def cleanReleases(release):
-    if release.waiting:
-        flow = release.flow
-        next_release = flow.next_release()
-        last_release = flow.last_release()
+        yield self.db.updateReleaseState(release['id'])
 
-        # Cleanup stale releases, deprecated by request date
-        if next_release:
-            if release.release_date < next_release.release_date:
-                release.waiting = False
-                release.lock = False
-                release.save()
+    @defer.inlineCallbacks
+    def streamRelease(self, release):
+        build = yield self.db.getBuild(release['build_id'])
+        flow = yield self.db.getFlow(release['flow_id'])
+        stream = yield self.db.getReleaseStream(flow['stream_id'])
 
-        if last_release:
-            if release.release_date < last_release.release_date:
-                release.waiting = False
-                release.lock = False
-                release.save()
+        yield self.sendNotification('Pushing build %s to %s stream' % (
+            build['build_file'],
+            stream['name']
+        ), flow['project_id'])
+        # Stream release
 
-@task(time_limit=300)
-def runRelease(release):
-    if release.waiting:
-        flow = release.flow
+        push_cmd = stream['push_command']
+        result = yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
+            '/workspace/packages/', build['build_file'])))
 
-        if release.check_schedule() and release.check_signoff():
-            release.lock = True
-            release.save()
+        yield self.db.updateReleaseState(release['id'])
 
-            # Release the build
-            if flow.stream_mode == 0:
-                # Stream only
-                streamRelease.delay(release)
-            elif flow.stream_mode == 2:
-                # Stream and targets
-                streamRelease.delay(release)
-                pushTargets.delay(release, flow)
-            else:
-                # Target only
-                pushTargets.delay(release, flow)
+    @defer.inlineCallbacks
+    def cleanRelease(self, release):
+        if release['waiting']:
+            flow = yield self.db.getFlow(release['flow_id'])
+            next_release = yield self.db.getNextFlowRelease(release['flow_id'])
+            last_release = yield self.db.getLastFlowRelease(release['flow_id'])
 
-@task(time_limit=60)
-def checkReleases():
-    releases = models.Release.objects.filter(waiting=True, lock=False)
-    logger.info("Release queue is at %s" % len(releases))
+            # Cleanup stale releases, deprecated by request date
+            if next_release:
+                if release['release_date'] < next_release['release_date']:
+                    yield self.db.updateReleaseState(release['id'])
 
-    skip = []
+            if last_release:
+                if release['release_date'] < last_release['release_date']:
+                    yield self.db.updateReleaseState(release['id'])
 
-    # Clean old releases
-    for release in releases:
-        cleanReleases(release)
+    @defer.inlineCallbacks
+    def call_runrelease(self, params):
+        release = yield self.db.getRelease(params['release_id'])
+        if release['waiting']:
+            flow = yield self.db.getFlow(release['flow_id'])
 
-        current = models.Release.objects.filter(flow=release.flow, waiting=True, lock=True).count()
+            signoff = yield self.db.checkReleaseSignoff(release['id'], flow)
 
-        if current > 0:
-            logger.info("Skipping release %s on this run - %s in queue" % (repr(release), current))
-            skip.append(release.id)
+            if self.db.checkReleaseSchedule(release) and signoff:
+                yield self.db.updateReleaseLocks(release['id'], True)
 
-    # Lock all the release objects we now see
-    releases = models.Release.objects.filter(waiting=True, lock=False).exclude(id__in=skip)
 
-    for release in releases:
-        release.lock=True
-        release.save()
+                # Release the build
+                if flow['stream_mode'] == 0:
+                    # Stream only
+                    yield self.streamRelease(release)
+                elif flow['stream_mode'] == 2:
+                    # Stream and targets
+                    yield self.streamRelease(release)
+                    yield self.pushTargets(release, flow)
+                else:
+                    # Target only
+                    yield self.pushTargets(release, flow)
 
-    for release in releases:
-        logger.info("Running release %s" % repr(release))
-        runRelease.delay(release)
+                yield self.db.updateReleaseLocks(release['id'], False)
 
-@task(time_limit=1800)
-def build(build):
-    """
-    Use subprocess to execute a build, update the db with results along the way
-    """
+    @cron(secs="*/10")
+    @defer.inlineCallbacks
+    def call_checkreleases(self, params):
+        releases = yield self.db.getReleases(waiting=True, lock=False)
+        #self.log("Release queue is at %s" % len(releases))
 
-    project = build.project
-    giturl = project.github_url
-    chunks = giturl.split(':')[1].split('/')
-    repo = chunks[-1][:-4]
+        skip = []
 
-    branch = project.branch
+        # Clean old releases
+        for release in releases:
+            yield self.cleanRelease(release)
 
-    # Get a build number
-    try:
-        buildnums = models.BuildNumbers.objects.get(package=repo)
-    except models.BuildNumbers.DoesNotExist:
-        buildnums = models.BuildNumbers.objects.create(package=repo)
+            current = yield self.db.countReleases(
+                release['flow_id'], waiting=True, lock=True)
 
-    build_num = buildnums.build_num + 1
+            if current > 0:
+                self.log("Skipping release %s on this run - %s in queue" % (
+                    repr(release), current))
+                skip.append(release['id'])
 
-    # Increment the project build number
-    buildnums.build_num += 1
-    buildnums.save()
+        # Lock all the release objects we now see
+        r = yield self.db.getReleases(waiting=True, lock=False)
+        releases = [i for i in r if i['id'] not in skip]
 
-    id = project.idhash
+        #for release in releases:
+        #    yield self.db.updateReleaseLocks(release['id'], True)
 
-    local = os.path.dirname(sys.argv[0])
-    buildpack = os.path.join(local, 'bin/build_package')
+        for release in releases:
+            self.log("Running release %s" % repr(release))
+            # XXX Use client queue
+            reactor.callLater(0, self.call_runrelease, 
+                {'release_id': release['id']})
 
-    # Figure out some directory paths
-    workspace = os.path.join('/workspace', id)
-    package = os.path.join(workspace, 'package')
-    packages = '/workspace/packages'
+    @defer.inlineCallbacks
+    def endBuild(self, code, project_id, build_id, idhash):
+        workspace = os.path.join('/workspace', idhash)
+        package = os.path.join(workspace, 'package')
+        packages = '/workspace/packages'
 
-    if settings.DEBUG:
-        print "Executing build %s %s" % (giturl, branch)
+        del self.build_locks[project_id]
 
-    build.save()
+        if code != 0:
+            yield self.db.setBuildState(build_id, 2)
 
-    sendNotification.delay(
-        'Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
-            settings.SIDELOADER_DOMAIN, build.id, build.id, branch
-        ), build.project)
-
-    args = [buildpack, '--branch', branch, '--build', str(build_num), '--id', id]
-
-    if build.project.deploy_file:
-        args.extend(['--deploy-file', build.project.deploy_file])
-
-    if build.project.package_name:
-        args.extend(['--name', build.project.package_name])
-
-    if build.project.build_script:
-        args.extend(['--build-script', build.project.build_script])
-
-    if build.project.postinstall_script:
-        args.extend(['--postinst-script', build.project.postinstall_script])
-
-    if build.project.package_manager:
-        args.extend(['--packman', build.project.package_manager])
-
-    if build.project.deploy_type:
-        args.extend(['--dtype', build.project.deploy_type])
-
-    args.append(giturl)
-
-    builder = subprocess.Popen(args,
-                               stdout=subprocess.PIPE,
-                               stderr=subprocess.STDOUT, cwd=local, bufsize=1)
-
-    for line in iter(builder.stdout.readline, b''):
-        build.log += line
-        build.save()
-
-    builder.communicate()
-
-    if builder.returncode != 0:
-        build.state = 2
-        sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> failed' % (
-            settings.SIDELOADER_DOMAIN, build.id, build.id
-        ), build.project)
-    else:
-        if not os.path.exists(packages):
-            os.makedirs(packages)
-
-        debs = [i for i in os.listdir(package) if ((i[-4:]=='.deb') or (i[-4:]=='.rpm'))]
-        if not debs:
-            # We must have failed actually
-            build.state = 2
-            sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> failed' % (
-                settings.SIDELOADER_DOMAIN, build.id, build.id
-            ), build.project)
+            reactor.callLater(0, self.sendNotification,
+                'Build <http://%s/projects/build/view/%s|#%s> failed' % (
+                    settings.SIDELOADER_DOMAIN, build_id, build_id
+                ), project_id)
 
         else:
-            build.state = 1
-            sendNotification.delay('Build <http://%s/projects/build/view/%s|#%s> successful' % (
-                settings.SIDELOADER_DOMAIN, build.id, build.id
-            ), build.project)
+            if not os.path.exists(packages):
+                os.makedirs(packages)
 
-            deb = debs[0]
-            build.build_file = deb
+            debs = [i for i in os.listdir(package) if ((i[-4:]=='.deb') or (i[-4:]=='.rpm'))]
 
-            # Relocate the package to our archive
-            shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+            if not debs:
+                # We must have failed actually
+                yield self.db.setBuildState(build_id, 2)
 
-            # Find any auto-release streams
-            flows = build.project.releaseflow_set.filter(auto_release=True)
-            if flows:
-                build.save()
-                for flow in flows:
-                    doRelease.delay(build, flow)
+                reactor.callLater(0, self.sendNotification,
+                    'Build <http://%s/projects/build/view/%s|#%s> failed' % (
+                        settings.SIDELOADER_DOMAIN, build_id, build_id
+                    ), project_id)
 
-    build.save()
+            else:
+                deb = debs[0]
+
+                yield self.db.setBuildState(build_id, 1)
+                yield self.db.setBuildFile(build_id, deb)
+
+                reactor.callLater(0, self.sendNotification,
+                    'Build <http://%s/projects/build/view/%s|#%s> successful' % (
+                        settings.SIDELOADER_DOMAIN, build_id, build_id
+                    ),
+                    project_id)
+
+                # Relocate the package to our archive
+                shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+
+                # Find any auto-release streams
+                # XXX Implement auto flow XXX
+                flows = yield self.db.getAutoFlows(project_id)
+                if flows:
+                    for flow in flows:
+                        reactor.callLater(0, self.doRelease, build_id, flow['id'])
+
+    @defer.inlineCallbacks
+    def call_build(self, params):
+        """
+        Use subprocess to execute a build, update the db with results along the way
+        """
+        
+        build_id = params['build_id']
+
+        build = yield self.db.getBuild(build_id)
+
+        project_id = build['project_id']
+
+        if project_id in self.build_locks:
+            if (time.time() - self.build_locks[project_id]) < 1800:
+                # Don't build
+                defer.returnValue(None)
+
+        self.build_locks[project_id] = time.time()
+
+        project = yield self.db.getProject(project_id)
+        
+        chunks = project['github_url'].split(':')[1].split('/')
+        repo = chunks[-1][:-4]
+
+        # Get a build number
+        build_num = yield self.db.getBuildNumber(repo)
+        build_num += 1
+
+        # Increment the project build number
+        yield self.db.setBuildNumber(repo, build_num)
+
+        local = self.config.get('localdir', 
+            os.path.join(os.path.dirname(sys.argv[0]), '../..'))
+        buildpack = os.path.join(local, 'bin/build_package')
+
+        # Figure out some directory paths
+
+        if settings.DEBUG:
+            print "Executing build %s %s" % (project['github_url'], project['branch'])
+
+        reactor.callLater(0, self.sendNotification, 
+            'Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
+                settings.SIDELOADER_DOMAIN, build_id, build_id, project['branch']
+            ), project_id)
+
+        args = ['build_package', '--branch', project['branch'], '--build', str(build_num), '--id', project['idhash']]
+
+        if project['deploy_file']:
+            args.extend(['--deploy-file', project['deploy_file']])
+
+        if project['package_name']:
+            args.extend(['--name', project['package_name']])
+
+        if project['build_script']:
+            args.extend(['--build-script', project['build_script']])
+
+        if project['postinstall_script']:
+            args.extend(['--postinst-script', project['postinstall_script']])
+
+        if project['package_manager']:
+            args.extend(['--packman', project['package_manager']])
+
+        if project['deploy_type']:
+            args.extend(['--dtype', project['deploy_type']])
+
+        args.append(project['github_url'])
+
+        self.log('Spawning build %s: %s :: %s %s' % (build_id, local, buildpack, repr(args)))
+
+        buildProcess = BuildProcess(build_id, project_id, project['idhash'], self.db, self.endBuild)
+
+        proc = reactor.spawnProcess(buildProcess, buildpack, args=args, path=local, env=os.environ)
+

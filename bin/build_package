@@ -358,6 +358,7 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
 
         # Jump out of virtualenv for fpm
         oldpath = os.getenv('PATH')
+
         os.putenv('PATH', oldpath.split(':',1)[-1])
         os.system(fpm)
         os.putenv('PATH', oldpath)
