@@ -12,9 +12,9 @@ from django.core.urlresolvers import reverse
 from django.http import HttpResponse
 from django.conf import settings
 
-from sideloader import forms, tasks, models
+from sideloader import forms, models
 
-from celery.task.control import revoke
+from rhumba.client import RhumbaClient
 
 def verifyHMAC(request, data=None):
     clientauth = request.META['HTTP_AUTHORIZATION']
@@ -424,7 +424,10 @@ def workflow_push(request, flow, build):
     if (request.user.is_superuser) or (
         project in request.user.project_set.all()):
         
-        tasks.doRelease.delay(build, flow)
+        RhumbaClient().queue('sideloader', 'release', {
+            'build_id': build.id, 
+            'flow_id': flow.id
+        })
 
     return redirect('projects_view', id=project.id)
 
@@ -440,7 +443,11 @@ def workflow_schedule(request, flow, build):
 
             schedule = release['scheduled'] + timedelta(hours=int(release['tz']))
 
-            tasks.doRelease.delay(build, flow, scheduled=schedule)
+            RhumbaClient().queue('sideloader', 'doRelease', {
+                'build_id': build.id, 
+                'flow_id': flow.id,
+                'schedule': schedule
+            })
 
             return redirect('projects_view', id=flow.project.id)
     else:
@@ -595,10 +602,12 @@ def help_index(request):
 @login_required
 def build_cancel(request, id):
     build = models.Build.objects.get(id=id)
-    if build.project in request.user.project_set.all():
+    if request.user.is_superuser or (
+        build.project in request.user.project_set.all()):
+
         build.state = 3 
         build.save()
-        revoke(build.task_id, terminate=True)
+        #revoke(build.task_id, terminate=True)
 
     return redirect('home')
 
@@ -612,9 +621,16 @@ def projects_build(request, id):
             return redirect('build_view', id=current_builds[0].id)
         else:
             build = models.Build.objects.create(project=project, state=0)
-            task = tasks.build.delay(build)
-            build.task_id = task.task_id
+
             build.save()
+
+            taskid = RhumbaClient().queue('sideloader', 'build', {
+                'build_id': build.id
+            })
+
+            build.task_id = taskid
+            build.save()
+
             return redirect('build_view', id=build.id)
 
     return redirect('home')
@@ -666,8 +682,14 @@ def api_build(request, hash):
         current_builds = models.Build.objects.filter(project=project, state=0)
         if not current_builds:
             build = models.Build.objects.create(project=project, state=0)
-            task = tasks.build.delay(build)
-            build.task_id = task.task_id
+
+            build.save()
+
+            taskid = RhumbaClient().queue('sideloader', 'build', {
+                'build_id': build.id
+            })
+
+            build.task_id = taskid
             build.save()
 
             return HttpResponse('{"result": "Building"}',
@@ -685,8 +707,10 @@ def api_sign(request, hash):
 
     if signoff.release.waiting:
         if signoff.release.check_signoff():
-            tasks.runRelease.delay(signoff.release)
-
+            taskid = RhumbaClient().queue('sideloader', 'runrelease', {
+                'release_id': signoff.release.id
+            })
+           
     return render(request, "sign.html", {
         'signoff': signoff
     })

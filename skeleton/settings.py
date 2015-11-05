@@ -189,13 +189,6 @@ CELERY_IMPORTS = (
     'sideloader.tasks',
 )
 
-CELERYBEAT_SCHEDULE = {
-    'update-servers': {
-        'task': 'sideloader.tasks.checkReleases',
-        'schedule': datetime.timedelta(seconds=10)
-    }
-}
-
 # Defer email sending to Celery, except if we're in debug mode,
 # then just print the emails to stdout for debugging.
 EMAIL_BACKEND = 'djcelery_email.backends.CeleryEmailBackend'
