@@ -1,10 +1,7 @@
 # Django settings for skeleton project.
 
 import os, datetime, socket
-import djcelery
 
-
-djcelery.setup_loader()
 
 PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -140,8 +137,6 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'gunicorn',
     'raven.contrib.django.raven_compat',
-    'djcelery',
-    'djcelery_email',
     'social_auth',
     'crispy_forms',
     'sideloader',
@@ -178,23 +173,9 @@ LOGGING = {
 
 # Celery configuration options
 BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
-
-# Uncomment if you're running in DEBUG mode and you want to skip the broker
-# and execute tasks immediate instead of deferring them to the queue / workers.
-# CELERY_ALWAYS_EAGER = DEBUG
-
-# Tell Celery where to find the tasks
-CELERY_IMPORTS = (
-    'sideloader.tasks',
-)
 
 # Defer email sending to Celery, except if we're in debug mode,
 # then just print the emails to stdout for debugging.
-EMAIL_BACKEND = 'djcelery_email.backends.CeleryEmailBackend'
-if DEBUG:
-    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
 LOGIN_REDIRECT_URL = '/'
 SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/'
 
