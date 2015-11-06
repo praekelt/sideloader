@@ -212,7 +212,8 @@ class Plugin(RhumbaPlugin):
 
             try:
                 if flow['service_pre_stop']:
-                    stop = yield sc.get_all_stop()['stdout']
+                    stop = yield sc.get_all_stop()
+                    stop = stop['stdout']
 
                 result = yield sc.post_install({
                     'package': package,
