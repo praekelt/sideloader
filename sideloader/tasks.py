@@ -4,6 +4,7 @@ import shutil
 import sys
 import time
 import datetime
+import traceback
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
@@ -211,7 +212,8 @@ class Plugin(RhumbaPlugin):
 
             try:
                 if flow['service_pre_stop']:
-                    stop = yield sc.get_all_stop()['stdout']
+                    stop = yield sc.get_all_stop()
+                    stop = stop['stdout']
 
                 result = yield sc.post_install({
                     'package': package,
@@ -254,7 +256,7 @@ class Plugin(RhumbaPlugin):
                         r1 = yield sc.get_all_stop()
                         r2 = yield sc.get_all_start()
 
-                        result = r1['stdout'] + r2['stdout']
+                        restart = r1['stdout'] + r2['stdout']
 
                     yield self.db.updateTargetState(target['id'], 2)
 
@@ -274,10 +276,13 @@ class Plugin(RhumbaPlugin):
                 yield self.db.updateServerStatus(server['id'], "Reachable")
 
             except Exception, e:
-                yield self.db.updateTargetLog(target['id'], str(e))
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+
+                yield self.db.updateTargetLog(target['id'], ''.join(lines))
                 yield self.db.updateTargetState(target['id'], 3)
 
-                yield self.db.updateServerStatus(server['id'], str(e))
+                yield self.db.updateServerStatus(server['id'], ''.join(lines))
                
                 yield self.sendNotification('Deployment of build %s to %s failed!' % (
                     build['build_file'],
