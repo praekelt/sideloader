@@ -77,7 +77,6 @@ class Plugin(RhumbaPlugin):
 
     @defer.inlineCallbacks
     def sendNotification(self, message, project_id):
-        defer.returnValue(None)
         (name, notify, slack_channel
             ) = yield self.db.getProjectNotificationSettings(project_id)
         
