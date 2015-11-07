@@ -41,6 +41,18 @@
             }
         }
 
+        var notify = true;
+
+        function toggleNotify(){
+            var signoff = !$("#id_notify")[0].checked;
+            if (signoff) {
+                $("#div_id_notify_list").hide();
+            }
+            else {
+                $("#div_id_notify_list").show();
+            }
+        }
+
         function toggleMode(){
             var mode = $('input:radio[name=stream_mode]:checked').val();
 
@@ -75,6 +87,9 @@
         $("#id_require_signoff").click(toggleSignoff);
         toggleSignoff();
         
+        $("#id_notify").click(toggleNotify);
+        toggleNotify();
+
         $('input:radio[name=stream_mode]').change(toggleMode);
         toggleMode();
     });

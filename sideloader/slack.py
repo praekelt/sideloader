@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # Slack client library
 
-import httplib
 import urllib
 import json
+
+from rhumba.plugin import HTTPRequest
 
 
 class SlackClient(object):
@@ -13,9 +14,6 @@ class SlackClient(object):
         self.channel = channel
 
     def message(self, text, fields=[]):
-        headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        conn = httplib.HTTPSConnection(self.host, 443)
-
         params = urllib.urlencode({
             'payload': json.dumps({
                 'channel': self.channel,
@@ -30,11 +28,9 @@ class SlackClient(object):
             })
         })
 
-        conn.request("POST", 
-            "/services/hooks/incoming-webhook?token=%s" % self.token,
-            params, headers)
+        url = 'https://%s/services/hooks/incoming-webhook?token=%s' % (
+            self.host, self.token)
 
-        res = conn.getresponse()
-        conn.close()
-
-        return res
+        return HTTPRequest().getBody(url, method='POST', data=params, headers={
+                'Content-Type': ['application/x-www-form-urlencoded']
+            })

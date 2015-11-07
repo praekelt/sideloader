@@ -68,6 +68,9 @@ class ReleaseFlow(models.Model):
     signoff_list = models.TextField(blank=True)
     quorum = models.IntegerField(default=0)
 
+    notify = models.BooleanField(default=False)
+    notify_list = models.TextField(blank=True)
+
     service_restart = models.BooleanField(default=True)
     service_pre_stop = models.BooleanField(default=False)
     puppet_run = models.BooleanField(default=True)

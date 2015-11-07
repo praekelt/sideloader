@@ -73,11 +73,12 @@ class Plugin(RhumbaPlugin):
         msg['To'] = to
         msg.attach(cont)
 
-        yield sendmail(msg['From'], msg['To'], msg.as_string())
+        fr = settings.SIDELOADER_FROM.split('<')[-1].strip('>')
+
+        yield sendmail('localhost', fr, msg['To'], msg.as_string())
 
     @defer.inlineCallbacks
     def sendNotification(self, message, project_id):
-        defer.returnValue(None)
         (name, notify, slack_channel
             ) = yield self.db.getProjectNotificationSettings(project_id)
         
@@ -105,18 +106,27 @@ class Plugin(RhumbaPlugin):
 
         return self.sendEmail(to, cont, '%s release approval - action required' % name)
 
-    def sendScheduleNotification(to, release, flow, project):
+    def sendScheduleNotification(self, to, release, flow, project):
         cont = 'A %s release for %s has been scheduled for %s UTC' % (
             flow['name'],
             project['name'],
             str(release['scheduled'])
         )
 
-        yield sendEmail(to, cont, '%s %s release scheduled - %s UTC' % (
+        return self.sendEmail(to, cont, '%s %s release scheduled - %s UTC' % (
             project['name'],
             flow['name'],
             release['scheduled']
         ))
+
+    @defer.inlineCallbacks
+    def sendBuildEmail(self, to, flow, release):
+        build = yield self.db.getBuild(release['build_id'])
+        cont = 'Release %s deployed to %s' % (
+            build['build_file'], flow['name']
+        )
+
+        yield self.sendEmail(to, cont, cont)
 
     def call_release(self, params):
         return self.doRelease(
@@ -140,6 +150,7 @@ class Plugin(RhumbaPlugin):
         })
 
         if scheduled:
+            release = yield self.db.getRelease(release_id)
             reactor.callLater(0, self.sendNotification,
                 'Deployment scheduled for build %s at %s UTC to %s' % (
                     build['build_file'],
@@ -156,8 +167,7 @@ class Plugin(RhumbaPlugin):
         if flow['require_signoff']:
             # Create a signoff release
             # Turn whatever junk is in the email text into a list
-            users = flow['signoff_list'].replace('\r', ' ').replace(
-                        '\n', ' ').replace(',', ' ').strip().split()
+            users = self.db.getFlowSignoffList(flow)
 
             project = yield self.db.getProject(flow['project_id'])
 
@@ -337,6 +347,11 @@ class Plugin(RhumbaPlugin):
             if self.db.checkReleaseSchedule(release) and signoff:
                 yield self.db.updateReleaseLocks(release['id'], True)
 
+                addrs = self.db.getFlowNotifyList(flow)
+
+                for to in addrs:
+                    reactor.callLater(
+                        0, self.sendBuildEmail, to, flow, release)
 
                 # Release the build
                 if flow['stream_mode'] == 0:

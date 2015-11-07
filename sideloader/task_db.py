@@ -140,7 +140,6 @@ class SideloaderDB(object):
 
         defer.returnValue(q[0][0])
 
-
     @defer.inlineCallbacks
     def signoff_remaining(self, release_id, flow):
         q = flow['quorum']
@@ -211,7 +210,8 @@ class SideloaderDB(object):
         r = yield self.select('sideloader_releaseflow', [
             'id', 'name', 'stream_mode', 'require_signoff', 'signoff_list',
             'quorum', 'service_restart', 'service_pre_stop', 'puppet_run',
-            'auto_release', 'project_id', 'stream_id'], id=id)
+            'auto_release', 'project_id', 'stream_id', 'notify', 'notify_list'
+        ], id=id)
 
         if r:
             defer.returnValue(r[0])
@@ -222,13 +222,19 @@ class SideloaderDB(object):
         return flow['signoff_list'].replace('\r', ' ').replace(
             '\n', ' ').replace(',', ' ').strip().split()
 
+    def getFlowNotifyList(self, flow):
+        if flow['notify']:
+            return flow['notify_list'].replace('\r', ' ').replace(
+                '\n', ' ').replace(',', ' ').strip().split()
+        else:
+            return []
+
     def getAutoFlows(self, project):
         return self.select('sideloader_releaseflow', [
             'id', 'name', 'stream_mode', 'require_signoff', 'signoff_list',
             'quorum', 'service_restart', 'service_pre_stop', 'puppet_run',
-            'auto_release', 'project_id', 'stream_id'],
-            project_id=project, auto_release=True
-        )
+            'auto_release', 'project_id', 'stream_id', 'notify', 'notify_list'
+        ], project_id=project, auto_release=True)
 
     @defer.inlineCallbacks
     def getNextFlowRelease(self, flow_id):
