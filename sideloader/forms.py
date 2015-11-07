@@ -58,6 +58,16 @@ class FlowForm(BaseModelForm):
         required=False,
         help_text="List email addresses on a new line")
 
+    notify = forms.BooleanField(
+        label="Send email notifications for releases",
+        required=False)
+
+    notify_list = forms.CharField(
+        widget=forms.Textarea,
+        label="Notification list",
+        required=False,
+        help_text="List email addresses on a new line")
+
     auto_release = forms.BooleanField(
         help_text="Automatically deploy new builds to this release workflow", 
         required=False)
@@ -96,7 +106,8 @@ class FlowForm(BaseModelForm):
         fields = [
             'name', 'stream_mode', 'stream', 'targets',
             'service_restart', 'service_pre_stop', 'puppet_run',
-            'require_signoff', 'signoff_list', 'quorum', 'auto_release',
+            'require_signoff', 'signoff_list', 'quorum', 'notify', 
+            'notify_list', 'auto_release'
         ]
 
 class ProjectForm(BaseModelForm):
