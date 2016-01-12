@@ -112,7 +112,7 @@ class SideloaderDB(object):
 
     def setBuildNumber(self, repo, num, create=False):
         if create:
-            return self.p.runOperation('INSERT INTO sideloader_buildnumbers (package, build_num) VALUES (%s, %s)', (num, repo))
+            return self.p.runOperation('INSERT INTO sideloader_buildnumbers (package, build_num) VALUES (%s, %s)', (repo, num))
         else:
             return self.p.runOperation('UPDATE sideloader_buildnumbers SET build_num=%s WHERE package=%s', (num, repo))
 
