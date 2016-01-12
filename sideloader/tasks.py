@@ -479,6 +479,10 @@ class Plugin(RhumbaPlugin):
 
         # Get a build number
         build_num = yield self.db.getBuildNumber(repo)
+
+        if not build_num:
+            yield self.db.setBuildNumber(repo, build_num, create=True)
+
         build_num += 1
 
         # Increment the project build number
