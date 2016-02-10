@@ -142,7 +142,7 @@ class Sideloader:
         os.chdir(self.workspace)
         # Clone project
         self.log("Fetching github repo")
-        os.system('git clone --depth=1 %s' % (self.githuburl))
+        os.system('git clone --depth=1 --no-single-branch %s' % (self.githuburl))
 
         # Checkout the desired branch
         os.chdir(os.path.join(self.workspace, self.repo))
