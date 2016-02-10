@@ -6,7 +6,6 @@ pip:
  - django
 dependencies:
  - nginx
- - postgresql-server-dev-9.1
  - libpq-dev
  - postgresql
  - redis-server
