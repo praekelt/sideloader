@@ -86,12 +86,12 @@ class Sideloader:
         self.python = os.path.join(self.build_venv, 'bin/python')
 
         self.env = {
-            'VENV': self.build_venv, 
+            'VENV': self.build_venv,
             'PIP': self.pip,
             'REPO': self.repo,
             'BRANCH': self.branch,
-            'WORKSPACE': self.workspace, 
-            'BUILDDIR': self.build, 
+            'WORKSPACE': self.workspace,
+            'BUILDDIR': self.build,
             'PIP_DOWNLOAD_CACHE': '~/.pip_cache',
             'INSTALLDIR': self.install_location,
             'PATH': os.path.join(
@@ -142,7 +142,7 @@ class Sideloader:
         os.chdir(self.workspace)
         # Clone project
         self.log("Fetching github repo")
-        os.system('git clone %s' % (self.githuburl))
+        os.system('git clone --depth=1 --no-single-branch %s' % (self.githuburl))
 
         # Checkout the desired branch
         os.chdir(os.path.join(self.workspace, self.repo))
@@ -177,7 +177,7 @@ class Sideloader:
 
         if not self.package_target:
             self.package_target = self.deploy_yam.get('package_target', 'deb')
-        
+
         if self.deploy_type == 'virtualenv':
             self.log("Creating virtualenv")
             # Create clean virtualenv
