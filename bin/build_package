@@ -207,6 +207,7 @@ class Sideloader:
             'postinst_script': self.postinst_script,
             'name': self.name,
             'type': self.deploy_type,
+            'target': self.package_target,
             'build_script': self.bscript
         }))
 
@@ -372,10 +373,27 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
 
         self.log("Build completed successfully")
 
+    def dockerBuild(self):
+        repo = os.path.join(self.workspace, self.repo)
+
+        os.chdir(repo)
+
+        exit_status = os.system('/usr/bin/docker build -t %s .' % self.name)
+
+        exit_code = exit_status >> 8
+
+        if exit_code != 0:
+            self.fail_build("Build script exited with code %s" % exit_code)
+
     def buildProject(self):
         self.createWorkspace()
 
         self.log("Project config: " + repr(self.deploy_yam))
+
+        if self.deploy_type == 'docker':
+            self.dockerBuild()
+            self.log("Build completed successfully")
+            return
 
         if self.bscript:
             self.log("Launching build script")
