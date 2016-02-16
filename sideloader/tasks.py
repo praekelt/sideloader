@@ -307,6 +307,8 @@ class Plugin(RhumbaPlugin):
         build = yield self.db.getBuild(release['build_id'])
         flow = yield self.db.getFlow(release['flow_id'])
         stream = yield self.db.getReleaseStream(flow['stream_id'])
+        project_id = build['project_id']
+        project = yield self.db.getProject(project_id)
 
         yield self.sendNotification('Pushing build %s to %s stream' % (
             build['build_file'],
@@ -315,8 +317,14 @@ class Plugin(RhumbaPlugin):
         # Stream release
 
         push_cmd = stream['push_command']
-        result = yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
-            '/workspace/packages/', build['build_file'])))
+
+        if project['package_manager'] == 'docker':
+            result = yield fork('/bin/sh', ('-c', push_cmd % build['build_file']))
+        else:
+            result = yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
+                '/workspace/packages/', build['build_file'])))
+
+        self.log(repr(result))
 
         yield self.db.updateReleaseState(release['id'])
 
@@ -405,6 +413,8 @@ class Plugin(RhumbaPlugin):
         workspace = os.path.join('/workspace', idhash)
         package = os.path.join(workspace, 'package')
         packages = '/workspace/packages'
+        project = yield self.db.getProject(project_id)
+        dtype = project['deploy_type']
 
         del self.build_locks[project_id]
 
@@ -420,38 +430,48 @@ class Plugin(RhumbaPlugin):
             if not os.path.exists(packages):
                 os.makedirs(packages)
 
-            debs = [i for i in os.listdir(package) if ((i[-4:]=='.deb') or (i[-4:]=='.rpm'))]
-
-            if not debs:
-                # We must have failed actually
-                yield self.db.setBuildState(build_id, 2)
-
-                reactor.callLater(0, self.sendNotification,
-                    'Build <http://%s/projects/build/view/%s|#%s> failed' % (
-                        settings.SIDELOADER_DOMAIN, build_id, build_id
-                    ), project_id)
-
-            else:
-                deb = debs[0]
-
+            if dtype == 'docker':
                 yield self.db.setBuildState(build_id, 1)
-                yield self.db.setBuildFile(build_id, deb)
+                yield self.db.setBuildFile(build_id, project['package_name'])
 
-                reactor.callLater(0, self.sendNotification,
-                    'Build <http://%s/projects/build/view/%s|#%s> successful' % (
-                        settings.SIDELOADER_DOMAIN, build_id, build_id
-                    ),
-                    project_id)
-
-                # Relocate the package to our archive
-                shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
-
-                # Find any auto-release streams
-                # XXX Implement auto flow XXX
                 flows = yield self.db.getAutoFlows(project_id)
                 if flows:
                     for flow in flows:
                         reactor.callLater(0, self.doRelease, build_id, flow['id'])
+            else:
+
+                debs = [i for i in os.listdir(package) if ((i[-4:]=='.deb') or (i[-4:]=='.rpm'))]
+
+                if not debs:
+                    # We must have failed actually
+                    yield self.db.setBuildState(build_id, 2)
+
+                    reactor.callLater(0, self.sendNotification,
+                        'Build <http://%s/projects/build/view/%s|#%s> failed' % (
+                            settings.SIDELOADER_DOMAIN, build_id, build_id
+                        ), project_id)
+
+                else:
+                    deb = debs[0]
+
+                    yield self.db.setBuildState(build_id, 1)
+                    yield self.db.setBuildFile(build_id, deb)
+
+                    reactor.callLater(0, self.sendNotification,
+                        'Build <http://%s/projects/build/view/%s|#%s> successful' % (
+                            settings.SIDELOADER_DOMAIN, build_id, build_id
+                        ),
+                        project_id)
+
+                    # Relocate the package to our archive
+                    shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+
+                    # Find any auto-release streams
+                    # XXX Implement auto flow XXX
+                    flows = yield self.db.getAutoFlows(project_id)
+                    if flows:
+                        for flow in flows:
+                            reactor.callLater(0, self.doRelease, build_id, flow['id'])
 
     @defer.inlineCallbacks
     def call_build(self, params):

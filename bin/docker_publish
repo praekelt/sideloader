@@ -1,0 +1,6 @@
+#!/bin/bash
+
+/usr/bin/docker tag -f $2 $1/$2
+
+/usr/bin/docker push $1/$2
+

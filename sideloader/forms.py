@@ -118,12 +118,16 @@ class ProjectForm(BaseModelForm):
         widget=forms.RadioSelect,
         choices=(
             ('virtualenv', 'Virtualenv'),
-            ('python', 'Python package'), ('flat', 'Flat')))
+            ('python', 'Python package'), 
+            ('flat', 'Flat'),
+            ('docker', 'Docker')
+        )
+    )
 
     package_manager = forms.ChoiceField(
         label='Package manager target',
         widget=forms.RadioSelect,
-        choices=(('deb', 'Debian'),('rpm', 'Redhat')))
+        choices=(('deb', 'Debian'),('rpm', 'Redhat'), ('docker', 'Docker Registry')))
 
     allowed_users = forms.ModelMultipleChoiceField(
         queryset=User.objects.all().order_by('username'),
