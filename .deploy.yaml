@@ -10,3 +10,6 @@ dependencies:
  - postgresql
  - redis-server
  - python-yaml
+ - libjpeg-dev
+ - zlib1g-dev
+ - libxslt1-dev
