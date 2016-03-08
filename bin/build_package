@@ -378,7 +378,7 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
 
         os.chdir(repo)
 
-        exit_status = os.system('/usr/bin/docker build -t %s .' % self.name)
+        exit_status = os.system('/usr/bin/docker build --pull -t %s .' % self.name)
 
         exit_code = exit_status >> 8
 
