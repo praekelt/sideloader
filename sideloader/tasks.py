@@ -475,16 +475,8 @@ class Plugin(RhumbaPlugin):
                             reactor.callLater(0, self.doRelease, build_id, flow['id'])
 
     @defer.inlineCallbacks
-    def doBuild(self, build_id, build, project_id):
-
-        if project_id in self.build_locks:
-            if (time.time() - self.build_locks[project_id]) < 1800:
-                # Don't build
-                defer.returnValue(None)
-
-        self.build_locks[project_id] = time.time()
-
-        project = yield self.db.getProject(project_id)
+    def doBuild(self, build_id, build, project):
+        project_id = project['id']
         
         try:
             chunks = project['github_url'].split(':')[1].split('/')
@@ -555,8 +547,17 @@ class Plugin(RhumbaPlugin):
         build = yield self.db.getBuild(build_id)
         project_id = build['project_id']
 
+        if project_id in self.build_locks:
+            if (time.time() - self.build_locks[project_id]) < 1800:
+                # Don't build
+                defer.returnValue(None)
+
+        self.build_locks[project_id] = time.time()
+
+        project = yield self.db.getProject(project_id)
+
         try:
-            yield self.doBuild(build_id, build, project_id)
+            yield self.doBuild(build_id, build, project)
         except Exception, e:
             yield self.db.updateBuildLog(build_id, str(e))
-            yield self.endBuild(11, project_id, build_id, idhash)
+            yield self.endBuild(11, project_id, build_id, project['idhash'])
