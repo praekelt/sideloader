@@ -474,16 +474,7 @@ class Plugin(RhumbaPlugin):
                             reactor.callLater(0, self.doRelease, build_id, flow['id'])
 
     @defer.inlineCallbacks
-    def call_build(self, params):
-        """
-        Use subprocess to execute a build, update the db with results along the way
-        """
-        
-        build_id = params['build_id']
-
-        build = yield self.db.getBuild(build_id)
-
-        project_id = build['project_id']
+    def doBuild(self, build_id, build, project_id):
 
         if project_id in self.build_locks:
             if (time.time() - self.build_locks[project_id]) < 1800:
@@ -494,8 +485,11 @@ class Plugin(RhumbaPlugin):
 
         project = yield self.db.getProject(project_id)
         
-        chunks = project['github_url'].split(':')[1].split('/')
-        repo = chunks[-1][:-4]
+        try:
+            chunks = project['github_url'].split(':')[1].split('/')
+            repo = chunks[-1][:-4]
+        except:
+            raise Exception("Could not parse garbage url: %s" % project['github_url'])
 
         # Get a build number
         build_num = yield self.db.getBuildNumber(repo)
@@ -550,3 +544,18 @@ class Plugin(RhumbaPlugin):
 
         proc = reactor.spawnProcess(buildProcess, buildpack, args=args, path=local, env=os.environ)
 
+    @defer.inlineCallbacks
+    def call_build(self, params):
+        """
+        Use subprocess to execute a build, update the db with results along the way
+        """
+        
+        build_id = params['build_id']
+        build = yield self.db.getBuild(build_id)
+        project_id = build['project_id']
+
+        try:
+            yield self.doBuild(build_id, build, project_id)
+        except Exception, e:
+            yield self.db.updateBuildLog(build_id, str(e))
+            yield self.endBuild(11, project_id, build_id, idhash):
