@@ -13,3 +13,4 @@ pyflakes
 pyyaml
 django-crispy-forms
 rhumba
+PyOpenSSL
