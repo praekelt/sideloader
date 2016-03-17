@@ -17,7 +17,8 @@ from twisted.internet import defer, reactor, protocol
 from twisted.python import log
 from twisted.enterprise import adbapi
 
-from rhumba.plugin import RhumbaPlugin, fork
+from rhumba.plugin import RhumbaPlugin
+from rhumba.utils import fork
 from rhumba import cron
 
 
