@@ -558,4 +558,4 @@ class Plugin(RhumbaPlugin):
             yield self.doBuild(build_id, build, project_id)
         except Exception, e:
             yield self.db.updateBuildLog(build_id, str(e))
-            yield self.endBuild(11, project_id, build_id, idhash):
+            yield self.endBuild(11, project_id, build_id, idhash)
