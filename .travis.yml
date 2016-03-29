@@ -7,8 +7,7 @@ install:
 before_script:
   - git config --global user.email "tester@example.com"
   - git config --global user.name "Testy Testerson"
-  - echo "workspace_base: /tmp/ws" > config.yaml
-  - mkdir -p /tmp/ws
+  - cp config.yaml.example config.yaml
 script:
   - py.test tests/
   - trial sideloader.tests.test_tasks
