@@ -108,6 +108,5 @@ class TestDB(unittest.TestCase):
         yield self.plug.call_build({'build_id': 1})
 
         build = yield self._wait_for_build()
-        print build
         self.assertEquals(build['state'], 1)
         self.assertEquals(build['build_file'], 'test-package_0.2_amd64.deb')
