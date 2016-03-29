@@ -66,7 +66,7 @@ class Plugin(RhumbaPlugin):
         self.sl_config = yaml.load(open(
             os.path.join(self.local_path, 'config.yaml')))
 
-        self.workspace = self.sideloader_config.get('workspace_base',
+        self.workspace = self.sl_config.get('workspace_base',
             '/workspace')
 
         self.build_locks = {}
