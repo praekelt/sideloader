@@ -5,10 +5,9 @@ install:
   - "pip install -r requirements.pip"
   - "pip install -r requirements-dev.pip"
 before_script:
-  - pwd
   - git config --global user.email "tester@example.com"
   - git config --global user.name "Testy Testerson"
-  - echo "workspace_base:/tmp/ws" > config.yaml
+  - echo "workspace_base: /tmp/ws" > config.yaml
   - mkdir -p /tmp/ws
 script:
   - py.test tests/
