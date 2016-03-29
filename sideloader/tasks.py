@@ -63,7 +63,8 @@ class Plugin(RhumbaPlugin):
             os.path.join(os.path.dirname(sys.argv[0]), '../..'))
         self.buildpack = os.path.join(self.local_path, 'bin/build_package')
 
-        self.sl_config = yaml.load(open('config.yaml'))
+        self.sl_config = yaml.load(open(
+            os.path.join(self.local_path, 'config.yaml')))
 
         self.workspace = self.sideloader_config.get('workspace_base',
             '/workspace')
