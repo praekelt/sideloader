@@ -8,6 +8,7 @@ before_script:
   - git config --global user.email "tester@example.com"
   - git config --global user.name "Testy Testerson"
   - cp config.yaml.example config.yaml
+  - gem install fpm
 script:
   - py.test tests/
   - trial sideloader.tests.test_tasks
