@@ -29,7 +29,7 @@ class FakeDB(object):
                 'id': 1,
                 'name': 'Test project',
                 'github_url': 'https://github.com/praekelt/sideloader.git',
-                'branch': 'feature/catch-github-url-parse-failure',
+                'branch': 'develop',
                 'package_manager': 'deb',
                 'deploy_type': 'virtualenv',
                 'deploy_file': '.deploy.yaml',
