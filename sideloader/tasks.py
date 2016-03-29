@@ -5,6 +5,7 @@ import sys
 import time
 import datetime
 import traceback
+import yaml
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
@@ -61,6 +62,11 @@ class Plugin(RhumbaPlugin):
         self.local_path = self.config.get('localdir', 
             os.path.join(os.path.dirname(sys.argv[0]), '../..'))
         self.buildpack = os.path.join(self.local_path, 'bin/build_package')
+
+        self.sl_config = yaml.load(open('config.yaml'))
+
+        self.workspace = self.sideloader_config.get('workspace_base',
+            '/workspace')
 
         self.build_locks = {}
 
@@ -340,7 +346,7 @@ class Plugin(RhumbaPlugin):
             result = yield fork('/bin/sh', ('-c', push_cmd % build['build_file']))
         else:
             result = yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
-                '/workspace/packages/', build['build_file'])))
+                self.workspace, 'packages', build['build_file'])))
 
         self.log(repr(result))
 
@@ -428,9 +434,9 @@ class Plugin(RhumbaPlugin):
 
     @defer.inlineCallbacks
     def endBuild(self, code, project_id, build_id, idhash):
-        workspace = os.path.join('/workspace', idhash)
+        workspace = os.path.join(self.workspace, idhash)
         package = os.path.join(workspace, 'package')
-        packages = '/workspace/packages'
+        packages = os.path.join(self.workspace, 'packages')
         project = yield self.db.getProject(project_id)
         dtype = project['deploy_type']
 

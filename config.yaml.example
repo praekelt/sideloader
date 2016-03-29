@@ -1,6 +1,6 @@
 install_location: /opt
 default_branch: master
-workspace_base: /tmp/
+workspace_base: /tmp
 #drop_command: scp %s repo@myreposerver:/var/www/repo/incoming/
 drop_command: cp %s /tmp/
 #gpg_key: 77BBQGPGKEY
