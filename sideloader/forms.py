@@ -38,7 +38,34 @@ class ReleasePushForm(BaseModelForm):
 
     class Meta:
         model = models.Release
-        exclude = ('release_date', 'flow', 'build', 'waiting')
+        exclude = ('release_date', 'flow', 'build', 'waiting',)
+
+
+class WebhookForm(BaseModelForm):
+    after = forms.ModelChoiceField(
+        queryset=models.WebHook.objects.all().order_by('name'),
+        required=False
+    )
+
+    content_type = forms.ChoiceField(
+        label='Content type',
+        choices=(
+            ('application/json', 'application/json'),
+        )
+    )
+
+    method = forms.ChoiceField(
+        label='Request Method',
+        choices=(
+            ('POST', 'POST'),
+            ('GET', 'GET'),
+        )
+    )
+
+    class Meta:
+        model = models.Release
+        exclude = ('flow', 'last_response',)
+
 
 class FlowForm(BaseModelForm):
     targets = forms.ModelMultipleChoiceField(
@@ -103,12 +130,12 @@ class FlowForm(BaseModelForm):
     class Meta:
         exclude = ('project',)
         model = models.ReleaseFlow
-        fields = [
+        fields = (
             'name', 'stream_mode', 'stream', 'targets',
             'service_restart', 'service_pre_stop', 'puppet_run',
             'require_signoff', 'signoff_list', 'quorum', 'notify', 
             'notify_list', 'auto_release'
-        ]
+        )
 
 class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")
