@@ -231,6 +231,7 @@ def module_scheme(request, id):
     return HttpResponse(module.structure,
         content_type='application/json')
 
+
 @login_required
 def manifest_view(request, id):
     release = models.ReleaseFlow.objects.get(id=id)
@@ -316,6 +317,23 @@ def manifest_edit(request, id):
         'form': form,
         'projects': getProjects(request),
         'project': project
+    })
+
+@login_required
+def webhooks_view(request, id):
+    release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
+
+    if not request.user.is_superuser:
+        return redirect('home')
+
+    webhooks = release.webhook_set.all()
+
+    return render(request, 'flows/webhooks_view.html', {
+        'projects': getProjects(request),
+        'webhooks': webhooks,
+        'project': release.project,
+        'release': release
     })
 
 @login_required
