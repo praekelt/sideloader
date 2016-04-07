@@ -1,5 +1,8 @@
 *.py[cod]
 local_settings.py
+/_trial_temp*/
+.cache/
+/config.yaml
 
 # Vim
 .*.swp
