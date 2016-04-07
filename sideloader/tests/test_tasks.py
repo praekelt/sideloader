@@ -82,10 +82,12 @@ class FakeDB(object):
 class TestDB(unittest.TestCase):
     def setUp(self):
         self.client = FakeClient()
+        localdir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.plug = tasks.Plugin({
                         'name': 'sideloader', 
-                        'localdir': '/home/travis/build/praekelt/sideloader'
+                        'localdir': localdir,
                     }, self.client)
+        self.plug.db.p.close()
         self.plug.db = FakeDB()
 
     def _wait_for_build(self):
