@@ -54,6 +54,7 @@ class TestTasks(unittest.TestCase):
         yield self.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
         yield self.runInsert('sideloader_project', PROJECT_SIDELOADER)
         yield self.runInsert('sideloader_build', BUILD_1)
+        yield self.plug.db.setBuildNumber('sideloader', 1, create=True)
         self.plug.sendNotification = self._no_notification
         yield self.plug.call_build({'build_id': 1})
 
