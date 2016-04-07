@@ -83,6 +83,7 @@ class TestDB(unittest.TestCase):
     def setUp(self):
         self.client = FakeClient()
         localdir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        print localdir
         self.plug = tasks.Plugin({
                         'name': 'sideloader', 
                         'localdir': localdir,
