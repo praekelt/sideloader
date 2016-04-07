@@ -9,11 +9,11 @@ cache:
     - $HOME/.cache/pip
 
 install:
+  - "pip install 'pip>=8.0.0'"
   - "pip install -r requirements.pip"
   - "pip install -r requirements-dev.pip"
 
 before_script:
-  - pip install 'pip>=8.0.0'
   - git config --global user.email "tester@example.com"
   - git config --global user.name "Testy Testerson"
   - cp config.yaml.example config.yaml
