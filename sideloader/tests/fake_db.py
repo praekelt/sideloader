@@ -81,48 +81,48 @@ class FakeDB(object):
     # Release queries
 
     def createRelease(self, release):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def checkReleaseSchedule(self, release):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def releaseSignoffCount(self, release_id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def signoff_remaining(self, release_id, flow):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def checkReleaseSignoff(self, release_id, flow):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def countReleases(self, id, waiting=False, lock=False):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def getReleases(self, flowid=None, waiting=None, lock=None):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def getRelease(self, id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def getReleaseStream(self, id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def updateReleaseLocks(self, id, lock):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def updateReleaseState(self, id, lock=False, waiting=False):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     # Flow queries
 
     def getFlow(self, id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def getFlowSignoffList(self, flow):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def getFlowNotifyList(self, flow):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     @async
     def getAutoFlows(self, id):
@@ -130,27 +130,27 @@ class FakeDB(object):
                 if flow['auto_release'] and flow['project_id'] == id]
 
     def getNextFlowRelease(self, flow_id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def getLastFlowRelease(self, flow_id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     # Targets
 
     def getFlowTargets(self, flow_id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def getServer(self, id):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def updateTargetState(self, id, state):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def updateTargetLog(self, id, log):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def updateTargetBuild(self, id, build):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
 
     def updateServerStatus(self, id, status):
-        raise NotImplentedError("TODO")
+        raise NotImplementedError("TODO")
