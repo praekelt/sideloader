@@ -1,4 +1,4 @@
-sudo: false  # We want container builds.
+# sudo: false  # Non-container builds have pyyaml installed system-wide.
 
 language: python
 python:
