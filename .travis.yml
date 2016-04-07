@@ -9,6 +9,7 @@ before_script:
   - git config --global user.name "Testy Testerson"
   - cp config.yaml.example config.yaml
   - gem install fpm
+  - psql -c 'create database sideloader;' -U postgres
   - python manage.py migrate
 script:
   - py.test sideloader/ tests/
