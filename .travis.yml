@@ -1,15 +1,25 @@
+sudo: false  # We want container builds.
+
 language: python
 python:
   - "2.7"
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+
 install:
   - "pip install -r requirements.pip"
   - "pip install -r requirements-dev.pip"
+
 before_script:
+  - pip install 'pip>=8.0.0'
   - git config --global user.email "tester@example.com"
   - git config --global user.name "Testy Testerson"
   - cp config.yaml.example config.yaml
-  - gem install fpm
+  - gem install fpm --no-ri --no-rdoc
   - psql -c 'create database sideloader;' -U postgres
   - python manage.py migrate
+
 script:
   - py.test sideloader/ tests/
