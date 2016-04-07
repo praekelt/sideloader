@@ -1,8 +1,8 @@
-import time
+import sys
 import os
 
 from twisted.trial import unittest
-
+from twisted.python import log
 from twisted.internet import defer, reactor, error
 
 from sideloader import task_db, tasks
@@ -81,6 +81,7 @@ class FakeDB(object):
 
 class TestDB(unittest.TestCase):
     def setUp(self):
+        log.startLogging(sys.stdout)
         self.client = FakeClient()
         localdir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.plug = tasks.Plugin({
