@@ -59,17 +59,14 @@ class TestDB(unittest.TestCase):
         self.db = BothDBsProxy(self.real_db, self.fake_db)
         return self.clear_db()
 
+    @defer.inlineCallbacks
     def clear_db(self):
-        return defer.DeferredList([self.clear_table(tbl) for tbl in [
-            'sideloader_build',
-            'sideloader_buildnumbers',
-            'sideloader_releaseflow',
-            'sideloader_project',
-            'sideloader_releasestream',
-        ]])
-
-    def clear_table(self, table):
-        return self.real_db.p.runOperation('DELETE FROM %s' % (table,))
+        for tbl in ['sideloader_build',
+                    'sideloader_buildnumbers',
+                    'sideloader_releaseflow',
+                    'sideloader_project',
+                    'sideloader_releasestream']:
+            yield self.real_db.p.runOperation('DELETE FROM %s' % (tbl,))
 
     @defer.inlineCallbacks
     def test_real_select(self):
