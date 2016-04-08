@@ -146,8 +146,9 @@ class Sideloader:
 
         # Checkout the desired branch
         os.chdir(os.path.join(self.workspace, self.repo))
-        if os.system('git checkout %s' % self.branch) != 0:
-            self.fail_build("Can't switch to branch")
+        self.call_or_fail(
+            'git checkout %s' % self.branch,
+            "Can't switch to branch")
 
         try:
             self.deploy_yam = yaml.load(
@@ -379,12 +380,9 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
 
         os.chdir(repo)
 
-        exit_status = os.system('/usr/bin/docker build --pull -t %s .' % self.name)
-
-        exit_code = exit_status >> 8
-
-        if exit_code != 0:
-            self.fail_build("Build script exited with code %s" % exit_code)
+        self.call_or_fail(
+            '/usr/bin/docker build --pull -t %s .' % self.name,
+            "Build script exited with code {exit_code}")
 
     def buildProject(self):
         self.createWorkspace()
@@ -405,11 +403,8 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
                 )
 
             os.system('chmod a+x %s' % buildscript)
-            exit_status = os.system(buildscript)
-            # The high byte of the exit status is the process exit code.
-            exit_code = exit_status >> 8
-            if exit_code != 0:
-                self.fail_build("Build script exited with code %s" % exit_code)
+            self.call_or_fail(
+                buildscript, "Build script exited with code {exit_code}")
 
         self.createPackage()
 
@@ -420,6 +415,12 @@ fi\n""" % (os.path.join(self.install_venv, 'bin/python'), self.install_venv))
             self.log("Build failed: %s" % reason)
             sys.exit(code)
 
+    def call_or_fail(self, command, failmsg):
+        exit_status = os.system(command)
+        # The high byte of the exit status is the process exit code.
+        exit_code = exit_status >> 8
+        if exit_code != 0:
+            self.fail_build(failmsg.format(exit_code=exit_code))
 
 sideloader = Sideloader()
 sideloader.buildProject()
