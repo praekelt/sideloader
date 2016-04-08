@@ -6,7 +6,7 @@ from twisted.python import log
 from twisted.internet import defer, reactor
 
 from sideloader import tasks
-from sideloader.tests import fake_db
+from sideloader.tests import fake_db, repotools
 from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, PROJECT_SIDELOADER, BUILD_1)
 
@@ -47,10 +47,24 @@ class TestTasks(unittest.TestCase):
     def _no_notification(self, *a):
         return None
 
+    def mkrepo(self, name, add_scripts=True):
+        repo = repotools.LocalRepo('sideloader', self.mktemp())
+        if add_scripts:
+            repo.mkdir("scripts")
+            repo.add_file(
+                "scripts/test_build.sh", '#!/bin/bash\n\necho "OK"\n',
+                executable=True)
+            repo.add_file("scripts/test_post.sh", "echo TEST")
+            repo.commit("Add build scripts.")
+        return repo
+
     @defer.inlineCallbacks
     def test_build(self):
+        repo = self.mkrepo('sideloader')
+        prj = PROJECT_SIDELOADER.copy()
+        prj['github_url'] = repo.url
         yield self.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
-        yield self.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.runInsert('sideloader_project', prj)
         yield self.runInsert('sideloader_build', BUILD_1)
         yield self.plug.db.setBuildNumber('sideloader', 1, create=True)
         self.plug.sendNotification = self._no_notification
