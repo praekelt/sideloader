@@ -16,6 +16,12 @@ from sideloader.tests.fake_data import (
 log.startLogging(sys.stdout, setStdout=False)
 
 
+def dictmerge(dct, **kw):
+    dct = dct.copy()
+    dct.update(kw)
+    return dct
+
+
 class FakeClient(object):
     pass
 
@@ -74,48 +80,54 @@ class TestTasks(unittest.TestCase):
             end_text, notification,)
         self.assertTrue(notification.endswith(end_text), failmsg)
 
+    def assert_notifications(self, notifications, end_texts):
+        self.assertEqual(
+            len(notifications), len(end_texts),
+            "Expected %s notifications, got %r" % (
+                len(end_texts), notifications))
+        for notification, end_text in zip(notifications, end_texts):
+            self.assert_notification(notification, end_text)
+
+    @defer.inlineCallbacks
+    def setup_db(self, project_def, build_number=1):
+        yield self.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.runInsert('sideloader_project', project_def)
+        yield self.runInsert('sideloader_build', BUILD_1)
+        if build_number is not None:
+            yield self.plug.db.setBuildNumber(
+                'sideloader', build_number, create=True)
+
     @defer.inlineCallbacks
     def test_build(self):
         """
         We can successfully build a simple project.
         """
         repo = self.mkrepo('sideloader')
-        prj = PROJECT_SIDELOADER.copy()
-        prj['github_url'] = repo.url
-        yield self.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
-        yield self.runInsert('sideloader_project', prj)
-        yield self.runInsert('sideloader_build', BUILD_1)
-        yield self.plug.db.setBuildNumber('sideloader', 1, create=True)
+        yield self.setup_db(dictmerge(PROJECT_SIDELOADER, github_url=repo.url))
         notifications = self.patch_notifications()
         yield self.plug.call_build({'build_id': 1})
 
         build = yield self._wait_for_build(1)
-        print notifications
         self.assertEqual(build['state'], 1)
         self.assertEqual(build['build_file'], 'test-package_0.2_amd64.deb')
-        [start_not, success_not] = notifications
-        self.assert_notification(
-            start_not, "projects/build/view/1|#1> started for branch develop")
-        self.assert_notification(
-            success_not, "projects/build/view/1|#1> successful")
+        self.assert_notifications(notifications, [
+            "projects/build/view/1|#1> started for branch develop",
+            "projects/build/view/1|#1> successful",
+        ])
 
     @defer.inlineCallbacks
     def test_build_bad_url(self):
         """
         If we have a bad URL, the build fails.
         """
-        prj = PROJECT_SIDELOADER.copy()
-        prj['github_url'] = 'This is not a valid URL.'
-        yield self.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
-        yield self.runInsert('sideloader_project', prj)
-        yield self.runInsert('sideloader_build', BUILD_1)
-        yield self.plug.db.setBuildNumber('sideloader', 1, create=True)
+        yield self.setup_db(dictmerge(
+            PROJECT_SIDELOADER, github_url='This is not a valid URL.'))
         notifications = self.patch_notifications()
         yield self.plug.call_build({'build_id': 1})
 
         build = yield self._wait_for_build(1)
         self.assertEqual(build['state'], 2)
         self.assertEqual(build['build_file'], '')
-        [fail_not] = notifications
-        self.assert_notification(
-            fail_not, '/projects/build/view/1|#1> failed')
+        self.assert_notifications(notifications, [
+            "projects/build/view/1|#1> failed",
+        ])
