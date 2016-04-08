@@ -146,7 +146,8 @@ class Sideloader:
 
         # Checkout the desired branch
         os.chdir(os.path.join(self.workspace, self.repo))
-        os.system('git checkout %s' % self.branch)
+        if os.system('git checkout %s' % self.branch) != 0:
+            self.fail_build("Can't switch to branch")
 
         try:
             self.deploy_yam = yaml.load(
