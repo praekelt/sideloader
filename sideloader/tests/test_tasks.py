@@ -135,9 +135,49 @@ class TestTasks(unittest.TestCase):
     @defer.inlineCallbacks
     def test_build_missing_scripts(self):
         """
-        If we have a bad URL, the build fails.
+        If the build and postinst scripts are missing, the build fails.
         """
         repo = self.mkrepo('sideloader', add_scripts=False)
+        yield self.setup_db(dictmerge(PROJECT_SIDELOADER, github_url=repo.url))
+        notifications = self.patch_notifications()
+        yield self.plug.call_build({'build_id': 1})
+
+        build = yield self._wait_for_build(1)
+        self.assertEqual(build['state'], 2)
+        self.assertEqual(build['build_file'], '')
+        self.assert_notifications(notifications, [
+            "projects/build/view/1|#1> started for branch develop",
+            "projects/build/view/1|#1> failed",
+        ])
+
+    @defer.inlineCallbacks
+    def test_build_missing_scripts_branch(self):
+        """
+        If the build and postinst scripts are not in the branch we want to
+        build, the build fails.
+        """
+        repo = self.mkrepo('sideloader', add_scripts=False)
+        yield self.setup_db(dictmerge(
+            PROJECT_SIDELOADER, github_url=repo.url, branch='master'))
+        notifications = self.patch_notifications()
+        yield self.plug.call_build({'build_id': 1})
+
+        build = yield self._wait_for_build(1)
+        self.assertEqual(build['state'], 2)
+        self.assertEqual(build['build_file'], '')
+        self.assert_notifications(notifications, [
+            "projects/build/view/1|#1> started for branch master",
+            "projects/build/view/1|#1> failed",
+        ])
+
+    @defer.inlineCallbacks
+    def test_build_bad_script(self):
+        """
+        If the build script fails, the build fails.
+        """
+        repo = self.mkrepo('sideloader')
+        repo.add_file("scripts/test_build.sh", "exit 1", executable=True)
+        repo.commit("Break build.")
         yield self.setup_db(dictmerge(PROJECT_SIDELOADER, github_url=repo.url))
         notifications = self.patch_notifications()
         yield self.plug.call_build({'build_id': 1})
