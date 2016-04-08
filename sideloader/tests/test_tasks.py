@@ -131,3 +131,21 @@ class TestTasks(unittest.TestCase):
         self.assert_notifications(notifications, [
             "projects/build/view/1|#1> failed",
         ])
+
+    @defer.inlineCallbacks
+    def test_build_missing_scripts(self):
+        """
+        If we have a bad URL, the build fails.
+        """
+        repo = self.mkrepo('sideloader', add_scripts=False)
+        yield self.setup_db(dictmerge(PROJECT_SIDELOADER, github_url=repo.url))
+        notifications = self.patch_notifications()
+        yield self.plug.call_build({'build_id': 1})
+
+        build = yield self._wait_for_build(1)
+        self.assertEqual(build['state'], 2)
+        self.assertEqual(build['build_file'], '')
+        self.assert_notifications(notifications, [
+            "projects/build/view/1|#1> started for branch develop",
+            "projects/build/view/1|#1> failed",
+        ])
