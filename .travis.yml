@@ -23,4 +23,4 @@ before_script:
   - python manage.py createsuperuser --noinput --username=root --email=root@example.com
 
 script:
-  - py.test sideloader/ tests/
+  - py.test sideloader/ tests/ --ds=skeleton.settings
