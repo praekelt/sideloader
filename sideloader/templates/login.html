@@ -35,8 +35,8 @@
 
         <input type="hidden" name="next" value="{{ next }}" />
         <br/>
-        <a href="{% url 'socialauth_begin' backend='github' %}" class="btn">Login with GitHub</a>
-        <a href="{% url 'socialauth_begin' backend='google-oauth2' %}" class="btn">Login with Google</a>
+        <a href="{% url 'social:begin' backend='github' %}" class="btn">Login with GitHub</a>
+        <a href="{% url 'social:begin' backend='google-oauth2' %}" class="btn">Login with Google</a>
         </form>
 
     </div>

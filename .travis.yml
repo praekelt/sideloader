@@ -19,10 +19,8 @@ before_script:
   - cp config.yaml.example config.yaml
   - gem install fpm --no-ri --no-rdoc
   - psql -c 'create database sideloader;' -U postgres
-  # Hacky thing to prevent social auth stuff from breaking the db setup.
-  - python manage.py migrate auth || true
   - python manage.py migrate
   - python manage.py createsuperuser --noinput --username=root --email=root@example.com
 
 script:
-  - py.test sideloader/ tests/
+  - py.test sideloader/ tests/ --ds=skeleton.settings
