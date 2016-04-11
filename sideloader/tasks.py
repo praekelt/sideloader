@@ -54,10 +54,12 @@ class BuildProcess(protocol.ProcessProtocol):
             self.project_id, self.id, self.idhash)
 
 class Plugin(RhumbaPlugin):
-    def __init__(self, *a):
-        RhumbaPlugin.__init__(self, *a)
+    def __init__(self, *a, **kw):
+        self.db = kw.pop('task_db', None)
+        RhumbaPlugin.__init__(self, *a, **kw)
 
-        self.db = task_db.SideloaderDB()
+        if self.db is None:
+            self.db = task_db.SideloaderDB()
 
         self.local_path = self.config.get('localdir', 
             os.path.join(os.path.dirname(sys.argv[0]), '../..'))

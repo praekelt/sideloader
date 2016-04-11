@@ -205,6 +205,27 @@ def test_broken_build_succeeds(builder):
         r"\[.*\] Build failure overridden: Error copying files to package$")
 
 
+def test_build_with_bad_branch_fails(builder):
+    """
+    A build for a branch that doesn't exist fails.
+    """
+    builder.write_sideloader_config()
+    repo_dir = builder.create_repo("org", "project")
+    builder.create_branch(repo_dir, "master", files={
+        ".deploy.yaml": yaml.dump({"buildscript": "scripts/build.sh"}),
+        "scripts/build.sh": "echo 'hello from builder'",
+    })
+    build_result = builder.run_build(
+        "--id=id0", "file://%s" % repo_dir, "--branch", "stormdamage")
+    assert build_result.code == 1
+
+    assert build_result.contains_line(
+        "error: pathspec 'stormdamage' did not match"
+        " any file(s) known to git.")
+    assert build_result.contains_regex(
+        r"\[.*\] Build failed: Can't switch to branch$")
+
+
 def test_build_with_bad_file_fails(builder):
     """
     A build with files that can't be copied into the package fails.

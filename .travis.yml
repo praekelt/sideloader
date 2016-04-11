@@ -1,14 +1,28 @@
+# sudo: false  # Non-container builds have pyyaml installed system-wide.
+
 language: python
 python:
   - "2.7"
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+
 install:
+  - "pip install 'pip>=8.0.0'"
   - "pip install -r requirements.pip"
   - "pip install -r requirements-dev.pip"
+
 before_script:
   - git config --global user.email "tester@example.com"
   - git config --global user.name "Testy Testerson"
   - cp config.yaml.example config.yaml
-  - gem install fpm
+  - gem install fpm --no-ri --no-rdoc
+  - psql -c 'create database sideloader;' -U postgres
+  # Hacky thing to prevent social auth stuff from breaking the db setup.
+  - python manage.py migrate auth || true
+  - python manage.py migrate
+  - python manage.py createsuperuser --noinput --username=root --email=root@example.com
+
 script:
-  - py.test tests/
-  - trial sideloader.tests.test_tasks
+  - py.test sideloader/ tests/
