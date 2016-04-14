@@ -1,7 +1,8 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
+from django.core.urlresolvers import reverse
 
-
+from sideloader.models import Project, ReleaseFlow, ReleaseStream
 class TestIndex(TestCase):
     def test_auth_required(self):
         """
@@ -22,3 +23,61 @@ class TestIndex(TestCase):
         self.assertQuerysetEqual(resp.context["builds"], [])
         self.assertQuerysetEqual(resp.context["last_builds"], [])
         self.assertQuerysetEqual(resp.context["projects"], [])
+
+
+class TestProject(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("me", "me@example.com", "pass")
+        self.root = User.objects.create_superuser(
+            "root", "root@localhost", "pass")
+
+    def test_new_project_non_superuser(self):
+        """
+        We can't create a new project if we're not a superuser.
+        """
+        self.client.login(username="me", password="pass")
+        resp = self.client.post(reverse("projects_create"))
+        self.assertRedirects(resp, "/")
+
+    def test_new_project(self):
+        """
+        We can create a new project.
+        """
+        self.client.login(username="root", password="pass")
+        self.assertEqual(list(Project.objects.all()), [])
+        resp = self.client.post(reverse("projects_create"), {
+            "name": "My Project",
+            "github_url": "foo.git",
+            "branch": "develop",
+            "deploy_type": "virtualenv",
+            "package_manager": "deb",
+        })
+        [proj] = Project.objects.all()
+        self.assertEqual(proj.name, "My Project")
+        self.assertEqual(proj.github_url, "foo.git")
+        self.assertEqual(proj.branch, "develop")
+        self.assertRedirects(resp, reverse("projects_view", args=[proj.pk]))
+
+    def test_new_project_default_flows(self):
+        """
+        When we create a new project, we get some default workflows.
+        """
+        prod_s = ReleaseStream.objects.create(name="Production")
+        qa_s = ReleaseStream.objects.create(name="QA")
+        self.client.login(username="root", password="pass")
+        self.assertEqual(list(Project.objects.all()), [])
+        self.assertEqual(list(ReleaseFlow.objects.all()), [])
+        self.client.post(reverse("projects_create"), {
+            "name": "My Project",
+            "github_url": "foo.git",
+            "branch": "develop",
+            "deploy_type": "virtualenv",
+            "package_manager": "deb",
+        })
+        [proj] = Project.objects.all()
+
+        [prod_f, qa_f] = list(ReleaseFlow.objects.all().order_by("name"))
+        self.assertEqual(prod_f.project, proj)
+        self.assertEqual(prod_f.stream, prod_s)
+        self.assertEqual(qa_f.project, proj)
+        self.assertEqual(qa_f.stream, qa_s)
