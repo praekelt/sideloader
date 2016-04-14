@@ -29,6 +29,7 @@ class TestIndex(TestCase):
 
 class TestProject(TestCase):
     def setUp(self):
+        self.user = User.objects.create_user("me", "me@example.com", "pass")
         self.root = User.objects.create_superuser(
             "root", "root@localhost", "pass")
 
