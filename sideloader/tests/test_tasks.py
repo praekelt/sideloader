@@ -30,7 +30,9 @@ class TestTasks(unittest.TestCase):
             if build['state'] == 0:
                 reactor.callLater(0.1, _check_build, d)
             else:
-                d.callback(build)
+                # Wait an extra 100ms for things that happen after the build
+                # status is set.
+                reactor.callLater(0.1, d.callback, build)
 
         def _check_build(d):
             self.plug.db.getBuild(build_id).addCallback(_check_build_result, d)
