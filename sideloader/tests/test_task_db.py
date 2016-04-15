@@ -10,6 +10,7 @@ from sideloader.tests import fake_db
 from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, RELEASESTREAM_PROD, PROJECT_SIDELOADER, BUILD_1,
     RELEASEFLOW_QA, RELEASEFLOW_PROD)
+from sideloader.tests.utils import dictmerge, now_utc
 
 
 class BothDBsProxy(object):
@@ -61,12 +62,15 @@ class TestDB(unittest.TestCase):
 
     @defer.inlineCallbacks
     def clear_db(self):
-        for tbl in ['sideloader_build',
+        for tbl in ['sideloader_release',
+                    'sideloader_build',
                     'sideloader_buildnumbers',
                     'sideloader_releaseflow',
                     'sideloader_project',
                     'sideloader_releasestream']:
             yield self.real_db.p.runOperation('DELETE FROM %s' % (tbl,))
+            yield self.real_db.p.runOperation(
+                'ALTER SEQUENCE %s_id_seq RESTART' % (tbl,))
 
     @defer.inlineCallbacks
     def test_real_select(self):
@@ -227,6 +231,45 @@ class TestDB(unittest.TestCase):
         Updates to missing builds go to /dev/null.
         """
         yield self.db.setBuildFile(42, 'foo.deb')
+
+    @defer.inlineCallbacks
+    def test_createRelease_getRelease(self):
+        """
+        We can create a release and then get it.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_build', BUILD_1)
+        release_data = {
+            'flow_id': 1,
+            'build_id': 1,
+            'waiting': True,
+            'scheduled': None,
+            'release_date': now_utc(),
+            'lock': False
+        }
+        [release_id] = yield self.db.createRelease(release_data)
+        release = yield self.db.getRelease(release_id)
+        self.assertEqual(release, dictmerge(release_data, id=release_id))
+
+    @defer.inlineCallbacks
+    def test_getFlow(self):
+        """
+        We can get information about a release flow.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        flow = yield self.db.getFlow(1)
+        assert flow == RELEASEFLOW_QA
+
+    @defer.inlineCallbacks
+    def test_getReleaseFlow_missing(self):
+        """
+        We can't get information about a release flow that doesn't exist.
+        """
+        yield self.assertFailure(self.db.getFlow(42), Exception)
 
     @defer.inlineCallbacks
     def test_getAutoFlows(self):

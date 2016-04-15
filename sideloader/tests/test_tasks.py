@@ -6,13 +6,8 @@ from twisted.internet import defer, reactor
 from sideloader import tasks
 from sideloader.tests import fake_db, repotools
 from sideloader.tests.fake_data import (
-    RELEASESTREAM_QA, PROJECT_SIDELOADER, BUILD_1)
-
-
-def dictmerge(dct, **kw):
-    dct = dct.copy()
-    dct.update(kw)
-    return dct
+    RELEASESTREAM_QA, PROJECT_SIDELOADER, RELEASEFLOW_QA, BUILD_1)
+from sideloader.tests.utils import dictmerge
 
 
 class FakeClient(object):
@@ -85,6 +80,8 @@ class TestTasks(unittest.TestCase):
     def setup_db(self, project_def, build_number=1):
         yield self.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
         yield self.runInsert('sideloader_project', project_def)
+        yield self.runInsert('sideloader_releaseflow', dictmerge(
+            RELEASEFLOW_QA, project_id=project_def['id']))
         yield self.runInsert('sideloader_build', BUILD_1)
         if build_number is not None:
             yield self.plug.db.setBuildNumber(
