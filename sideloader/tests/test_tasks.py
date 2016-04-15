@@ -6,7 +6,8 @@ from twisted.internet import defer, reactor
 from sideloader import tasks
 from sideloader.tests import fake_db, repotools
 from sideloader.tests.fake_data import (
-    RELEASESTREAM_QA, PROJECT_SIDELOADER, RELEASEFLOW_QA, BUILD_1)
+    RELEASESTREAM_QA, RELEASESTREAM_PROD, PROJECT_SIDELOADER,
+    RELEASEFLOW_QA, RELEASEFLOW_PROD, BUILD_1)
 from sideloader.tests.utils import dictmerge
 
 
@@ -79,11 +80,13 @@ class TestTasks(unittest.TestCase):
             self.assert_notification(notification, end_text)
 
     @defer.inlineCallbacks
-    def setup_db(self, project_def, build_number=1):
+    def setup_db(self, project_def, build_number=1, flow_defs=()):
         yield self.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.runInsert('sideloader_releasestream', RELEASESTREAM_PROD)
         yield self.runInsert('sideloader_project', project_def)
-        yield self.runInsert('sideloader_releaseflow', dictmerge(
-            RELEASEFLOW_QA, project_id=project_def['id']))
+        for flow_def in flow_defs:
+            yield self.runInsert('sideloader_releaseflow', dictmerge(
+                flow_def, project_id=project_def['id']))
         yield self.runInsert('sideloader_build', BUILD_1)
         if build_number is not None:
             yield self.plug.db.setBuildNumber(
@@ -200,3 +203,59 @@ class TestTasks(unittest.TestCase):
             "projects/build/view/1|#1> started for branch develop",
             "projects/build/view/1|#1> failed",
         ])
+
+    @defer.inlineCallbacks
+    def test_build_and_release(self):
+        """
+        We can successfully build a simple project and then release it.
+
+        Note that this only creates the release object in the database. It
+        doesn't actually run the release.
+        """
+        repo = self.mkrepo('sideloader')
+        yield self.setup_db(
+            dictmerge(PROJECT_SIDELOADER, github_url=repo.url),
+            flow_defs=[RELEASEFLOW_PROD])
+        yield self.plug.call_build({'build_id': 1})
+
+        build = yield self._wait_for_build(1)
+        self.assertEqual(build['state'], 1)
+
+        # FIXME: We dig directly into our fake db here, because we haven't
+        #        implemented FakeDB.getReleases() yet.
+        self.assertEqual(self.plug.db._release, {})
+        yield self.plug.call_release(
+            {'build_id': 1, 'flow_id': RELEASEFLOW_PROD['id']})
+        [release] = yield self.plug.db._release.values()
+        self.assertEqual(release['build_id'], 1)
+        self.assertEqual(release['flow_id'], RELEASEFLOW_PROD['id'])
+        self.assertEqual(release['scheduled'], None)
+        self.assertEqual(release['waiting'], True)
+
+    @defer.inlineCallbacks
+    def test_build_and_autorelease(self):
+        """
+        We can successfully build a simple project and have it automatically
+        released.
+
+        Note that this only creates the release object in the database. It
+        doesn't actually run the release.
+        """
+        repo = self.mkrepo('sideloader')
+        yield self.setup_db(
+            dictmerge(PROJECT_SIDELOADER, github_url=repo.url),
+            flow_defs=[RELEASEFLOW_QA])
+        yield self.plug.call_build({'build_id': 1})
+
+        # FIXME: We dig directly into our fake db here, because we haven't
+        #        implemented FakeDB.getReleases() yet.
+        self.assertEqual(self.plug.db._release, {})
+
+        build = yield self._wait_for_build(1)
+        self.assertEqual(build['state'], 1)
+
+        [release] = yield self.plug.db._release.values()
+        self.assertEqual(release['build_id'], 1)
+        self.assertEqual(release['flow_id'], RELEASEFLOW_QA['id'])
+        self.assertEqual(release['scheduled'], None)
+        self.assertEqual(release['waiting'], True)
