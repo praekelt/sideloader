@@ -1,19 +1,12 @@
-import sys
 import os
 
 from twisted.trial import unittest
-from twisted.python import log
 from twisted.internet import defer, reactor
 
 from sideloader import tasks
 from sideloader.tests import fake_db, repotools
 from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, PROJECT_SIDELOADER, BUILD_1)
-
-
-# NOTE: This is necessary for useful failure output in pytest, but is a problem
-#       when running these tests with trial.
-log.startLogging(sys.stdout, setStdout=False)
 
 
 def dictmerge(dct, **kw):
