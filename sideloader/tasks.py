@@ -458,8 +458,8 @@ class Plugin(RhumbaPlugin):
                 os.makedirs(packages)
 
             if dtype == 'docker':
-                yield self.db.setBuildState(build_id, 1)
                 yield self.db.setBuildFile(build_id, project['package_name'])
+                yield self.db.setBuildState(build_id, 1)
 
                 flows = yield self.db.getAutoFlows(project_id)
                 if flows:
@@ -485,8 +485,8 @@ class Plugin(RhumbaPlugin):
                 else:
                     deb = debs[0]
 
-                    yield self.db.setBuildState(build_id, 1)
                     yield self.db.setBuildFile(build_id, deb)
+                    yield self.db.setBuildState(build_id, 1)
 
                     reactor.callLater(0, self.sendNotification,
                         'Build <http://%s/projects/build/view/%s|#%s> successful' % (
