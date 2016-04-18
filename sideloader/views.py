@@ -334,6 +334,14 @@ def webhooks_view(request, id):
     })
 
 @login_required
+def webhooks_delete(request, id):
+    webhook = models.WebHook.objects.get(id=id)
+    release = webhook.flow
+    webhook.delete()
+
+    return redirect('webhooks', id=release.id)
+
+@login_required
 def webhooks_edit(request, id):
     webhook = models.WebHook.objects.get(id=id)
     release = webhook.flow

@@ -35,6 +35,7 @@ urlpatterns = patterns('',
     url(r'^workflow/webhooks/(?P<id>[\d]+)$', 'sideloader.views.webhooks_view', name='webhooks'),
     url(r'^workflow/webhooks/(?P<id>[\d]+)/create$', 'sideloader.views.webhooks_create', name='webhooks_create'),
     url(r'^workflow/webhooks/edit/(?P<id>[\d]+)$', 'sideloader.views.webhooks_edit', name='webhooks_edit'),
+    url(r'^workflow/webhooks/delete/(?P<id>[\d]+)$', 'sideloader.views.webhooks_delete', name='webhooks_delete'),
 
     # Modules
     url(r'^modules/edit/(?P<id>[\w]+)$', 'sideloader.views.module_edit', name='module_edit'),
