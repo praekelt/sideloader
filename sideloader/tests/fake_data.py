@@ -1,17 +1,4 @@
-from datetime import datetime, timedelta, tzinfo
-
-
-class UTC(tzinfo):
-    def utcoffset(self, dt):
-        return timedelta(0)
-
-    def tzname(self, dt):
-        return "UTC"
-
-    def dst(self, dt):
-        return timedelta(0)
-
-utc = UTC()
+from sideloader.tests.utils import datetime_utc
 
 
 RELEASESTREAM_QA = {
@@ -80,7 +67,7 @@ RELEASEFLOW_PROD = {
 
 BUILD_1 = {
     'id': 1,
-    'build_time': datetime(2016, 4, 1, tzinfo=utc),
+    'build_time': datetime_utc(2016, 4, 1),
     'task_id': '1',
     'log': '',
     'project_id': 1,
