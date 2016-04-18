@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.urlresolvers import reverse
+import pytest
 
 from sideloader.models import Project, ReleaseFlow, ReleaseStream, WebHook
 
@@ -135,11 +136,19 @@ class TestWebhook(TestCase):
         self.root = User.objects.create_superuser(
             "root", "root@localhost", "pass")
         self.qa_stream = ReleaseStream.objects.create(name="QA")
+        self.prod_stream = ReleaseStream.objects.create(name="Production")
         self.proj = Project.objects.create(
             name="My Project", github_url="foo.git", branch="develop",
             created_by_user=self.root, idhash="seekrit")
         self.qa_flow = ReleaseFlow.objects.create(
             name="QA Flow", project=self.proj)
+        self.prod_flow = ReleaseFlow.objects.create(
+            name="Production Flow", project=self.proj)
+
+    def assert_form_field_choices(self, url, field, choices):
+        resp = self.client.get(url)
+        self.assertEqual(
+            list(resp.context['form'].fields[field].choices), choices)
 
     def test_new_webhook(self):
         """
@@ -161,3 +170,70 @@ class TestWebhook(TestCase):
         self.assertEqual(hook.content_type, "application/json")
         self.assertRedirects(
             resp, reverse("webhooks", args=[self.qa_flow.pk]))
+
+    def test_chain_webhook(self):
+        """
+        We can chain webhooks.
+        """
+        self.client.login(username="root", password="pass")
+        self.assertEqual(list(WebHook.objects.all()), [])
+        url = reverse("webhooks_create", args=[self.qa_flow.pk])
+
+        self.assert_form_field_choices(url, 'after', [(u'', u'---------')])
+        resp = self.client.post(url, {
+            "description": "My Webhook",
+            "url": "https://example.com/hook1/token",
+            "method": "POST",
+            "content_type": "application/json",
+        })
+        [hook1] = WebHook.objects.all()
+        self.assertEqual(hook1.description, "My Webhook")
+        self.assertEqual(hook1.url, "https://example.com/hook1/token")
+        self.assertEqual(hook1.after, None)
+        self.assertRedirects(
+            resp, reverse("webhooks", args=[self.qa_flow.pk]))
+
+        self.assert_form_field_choices(
+            url, 'after', [(u'', u'---------'), (hook1.pk, hook1.description)])
+        resp = self.client.post(url, {
+            "description": "Chained Webhook",
+            "url": "https://example.com/hook2/token2",
+            "method": "POST",
+            "content_type": "application/json",
+            "after": hook1.pk,
+        })
+        [hook2] = WebHook.objects.all().exclude(pk__in=[hook1.pk])
+        self.assertEqual(hook2.description, "Chained Webhook")
+        self.assertEqual(hook2.url, "https://example.com/hook2/token2")
+        self.assertEqual(hook2.after, hook1)
+        self.assertRedirects(
+            resp, reverse("webhooks", args=[self.qa_flow.pk]))
+
+    @pytest.mark.xfail(reason="Still need to filter the hooks in the form.")
+    def test_chain_webhook_different_flows(self):
+        """
+        We can't chain webhooks across flows.
+        """
+        self.client.login(username="root", password="pass")
+        self.assertEqual(list(WebHook.objects.all()), [])
+        url = reverse("webhooks_create", args=[self.qa_flow.pk])
+
+        self.assert_form_field_choices(url, 'after', [(u'', u'---------')])
+        resp = self.client.post(url, {
+            "description": "My Webhook",
+            "url": "https://example.com/hook1/token",
+            "method": "POST",
+            "content_type": "application/json",
+        })
+        [hook1] = WebHook.objects.all()
+        self.assertEqual(hook1.description, "My Webhook")
+        self.assertEqual(hook1.url, "https://example.com/hook1/token")
+        self.assertEqual(hook1.after, None)
+        self.assertRedirects(
+            resp, reverse("webhooks", args=[self.qa_flow.pk]))
+
+        self.assert_form_field_choices(
+            url, 'after', [(u'', u'---------'), (hook1.pk, hook1.description)])
+
+        url = reverse("webhooks_create", args=[self.prod_flow.pk])
+        self.assert_form_field_choices(url, 'after', [(u'', u'---------')])
