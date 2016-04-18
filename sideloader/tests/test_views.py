@@ -160,4 +160,4 @@ class TestWebhook(TestCase):
         self.assertEqual(hook.method, "POST")
         self.assertEqual(hook.content_type, "application/json")
         self.assertRedirects(
-            resp, reverse("webhooks", args=[hook.pk]))
+            resp, reverse("webhooks", args=[self.qa_flow.pk]))
