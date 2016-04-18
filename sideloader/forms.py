@@ -33,6 +33,7 @@ class ReleaseForm(BaseModelForm):
         model = models.ReleaseStream
         fields = ('name', 'push_command',)
 
+
 class ReleasePushForm(BaseModelForm):
     tz = forms.CharField(widget=forms.HiddenInput())
 
@@ -43,9 +44,16 @@ class ReleasePushForm(BaseModelForm):
 
 class WebhookForm(BaseModelForm):
     after = forms.ModelChoiceField(
-        queryset=models.WebHook.objects.all().order_by('name'),
-        required=False
+        queryset=models.WebHook.objects.all().order_by('description'),
+        required=False,
+        help_text="Only run this webhook if the selected one succeeds"
     )
+
+    payload = forms.CharField(
+        widget=forms.Textarea,
+        label="Payload",
+        required=False,
+        help_text="A payload to send with this request")
 
     content_type = forms.ChoiceField(
         label='Content type',
@@ -63,7 +71,7 @@ class WebhookForm(BaseModelForm):
     )
 
     class Meta:
-        model = models.Release
+        model = models.WebHook
         exclude = ('flow', 'last_response',)
 
 

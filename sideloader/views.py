@@ -324,9 +324,6 @@ def webhooks_view(request, id):
     release = models.ReleaseFlow.objects.get(id=id)
     project = release.project
 
-    if not request.user.is_superuser:
-        return redirect('home')
-
     webhooks = release.webhook_set.all()
 
     return render(request, 'flows/webhooks_view.html', {
@@ -335,6 +332,57 @@ def webhooks_view(request, id):
         'project': release.project,
         'release': release
     })
+
+@login_required
+def webhooks_edit(request, id):
+    webhook = models.WebHook.objects.get(id=id)
+    release = webhook.flow
+    project = release.project 
+
+    if request.method == "POST":
+        form = forms.WebhookForm(request.POST, instance=webhook)
+
+        if form.is_valid():
+            hook = form.save(commit=False)
+            hook.save()
+
+            return redirect('webhooks', id=release.id)
+
+    else:
+        form = forms.WebhookForm(instance=webhook)
+
+    return render(request, 'flows/webhooks_create_edit.html', {
+        'form': form,
+        'webhook': webhook,
+        'project': project,
+        'release': release,
+        'projects': getProjects(request)
+    })
+
+@login_required
+def webhooks_create(request, id):
+    release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
+
+    if request.method == "POST":
+        form = forms.WebhookForm(request.POST)
+        if form.is_valid():
+            hook = form.save(commit=False)
+            
+            hook.flow = release
+            hook.save()
+
+            return redirect('webhooks', id=release.id)
+    else:
+        form = forms.WebhookForm()
+
+    return render(request, 'flows/webhooks_create_edit.html', {
+        'form': form,
+        'project': project,
+        'release': release,
+        'projects': getProjects(request)
+    })
+
 
 @login_required
 def workflow_create(request, project):

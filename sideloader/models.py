@@ -113,6 +113,12 @@ class WebHook(models.Model):
     after = models.ForeignKey('self', null=True, blank=True)
     last_response = models.TextField(blank=True)
 
+    def __unicode__(self):
+        return self.description
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
+
 
 class Build(models.Model):
     project = models.ForeignKey(Project)
