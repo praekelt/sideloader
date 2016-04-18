@@ -1,7 +1,6 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.urlresolvers import reverse
-import pytest
 
 from sideloader.models import Project, ReleaseFlow, ReleaseStream, WebHook
 
@@ -168,6 +167,7 @@ class TestWebhook(TestCase):
         self.assertEqual(hook.url, "https://example.com/hook/token")
         self.assertEqual(hook.method, "POST")
         self.assertEqual(hook.content_type, "application/json")
+        self.assertEqual(hook.flow_id, self.qa_flow.pk)
         self.assertRedirects(
             resp, reverse("webhooks", args=[self.qa_flow.pk]))
 
@@ -190,6 +190,7 @@ class TestWebhook(TestCase):
         self.assertEqual(hook1.description, "My Webhook")
         self.assertEqual(hook1.url, "https://example.com/hook1/token")
         self.assertEqual(hook1.after, None)
+        self.assertEqual(hook1.flow_id, self.qa_flow.pk)
         self.assertRedirects(
             resp, reverse("webhooks", args=[self.qa_flow.pk]))
 
@@ -206,10 +207,10 @@ class TestWebhook(TestCase):
         self.assertEqual(hook2.description, "Chained Webhook")
         self.assertEqual(hook2.url, "https://example.com/hook2/token2")
         self.assertEqual(hook2.after, hook1)
+        self.assertEqual(hook2.flow_id, self.qa_flow.pk)
         self.assertRedirects(
             resp, reverse("webhooks", args=[self.qa_flow.pk]))
 
-    @pytest.mark.xfail(reason="Still need to filter the hooks in the form.")
     def test_chain_webhook_different_flows(self):
         """
         We can't chain webhooks across flows.

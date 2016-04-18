@@ -373,16 +373,12 @@ def webhooks_create(request, id):
     project = release.project
 
     if request.method == "POST":
-        form = forms.WebhookForm(request.POST)
+        form = forms.WebhookForm(request.POST, flow_id=release.id)
         if form.is_valid():
-            hook = form.save(commit=False)
-            
-            hook.flow = release
-            hook.save()
-
+            form.save()
             return redirect('webhooks', id=release.id)
     else:
-        form = forms.WebhookForm()
+        form = forms.WebhookForm(flow_id=release.id)
 
     return render(request, 'flows/webhooks_create_edit.html', {
         'form': form,

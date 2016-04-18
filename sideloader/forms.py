@@ -43,8 +43,18 @@ class ReleasePushForm(BaseModelForm):
 
 
 class WebhookForm(BaseModelForm):
+    def __init__(self, *args, **kw):
+        # The parent flow needs to be set, but can't have a form field. We also
+        # need to filter the 'after' field's choices based on the parent flow.
+        # Thus we get the hackery below.
+        if 'instance' not in kw:
+            kw['instance'] = models.WebHook(flow_id=kw.pop('flow_id'))
+        super(WebhookForm, self).__init__(*args, **kw)
+        self.fields['after'].queryset = models.WebHook.objects.filter(
+            flow_id=kw['instance'].flow_id).order_by('description')
+
     after = forms.ModelChoiceField(
-        queryset=models.WebHook.objects.all().order_by('description'),
+        queryset=models.WebHook.objects.none(),  # We override this in init.
         required=False,
         help_text="Only run this webhook if the selected one succeeds"
     )
