@@ -2,7 +2,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.urlresolvers import reverse
 
-from sideloader.models import Project, ReleaseFlow, ReleaseStream
+from sideloader.models import Project, ReleaseFlow, ReleaseStream, WebHook
 
 
 class TestIndex(TestCase):
@@ -128,3 +128,36 @@ class TestReleaseFlow(TestCase):
         self.assertEqual(flow.stream_mode, 1)
         self.assertRedirects(
             resp, reverse("projects_view", args=[self.proj.pk]))
+
+
+class TestWebhook(TestCase):
+    def setUp(self):
+        self.root = User.objects.create_superuser(
+            "root", "root@localhost", "pass")
+        self.qa_stream = ReleaseStream.objects.create(name="QA")
+        self.proj = Project.objects.create(
+            name="My Project", github_url="foo.git", branch="develop",
+            created_by_user=self.root, idhash="seekrit")
+        self.qa_flow = ReleaseFlow.objects.create(
+            name="QA Flow", project=self.proj)
+
+    def test_new_webhook(self):
+        """
+        We can create a new webhook for a flow.
+        """
+        self.client.login(username="root", password="pass")
+        self.assertEqual(list(WebHook.objects.all()), [])
+        url = reverse("webhooks_create", args=[self.qa_flow.pk])
+        resp = self.client.post(url, {
+            "description": "My Webhook",
+            "url": "https://example.com/hook/token",
+            "method": "POST",
+            "content_type": "application/json",
+        })
+        [hook] = WebHook.objects.all()
+        self.assertEqual(hook.description, "My Webhook")
+        self.assertEqual(hook.url, "https://example.com/hook/token")
+        self.assertEqual(hook.method, "POST")
+        self.assertEqual(hook.content_type, "application/json")
+        self.assertRedirects(
+            resp, reverse("webhooks", args=[hook.pk]))
