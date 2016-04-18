@@ -26,12 +26,21 @@ class FakeDB(object):
         self._build = {}
         self._buildnumbers = {}
         self._releaseflow = {}
+        self._release = {}
+
+    def _set_id(self, table, row):
+        if 'id' not in row:
+            row['id'] = max(list(table.keys()) + [0]) + 1
+        return row['id']
 
     @async
     def runInsert(self, table, keys):
-        data = getattr(self, table.replace('sideloader_', '_'))
-        data[keys['id']] = deepcopy(keys)
-        return (keys['id'],)
+        tbl = getattr(self, table.replace('sideloader_', '_'))
+        row = deepcopy(keys)
+        id = self._set_id(tbl, row)
+        assert id not in tbl
+        tbl[id] = row
+        return (id,)
 
     # Project queries
 
@@ -81,7 +90,7 @@ class FakeDB(object):
     # Release queries
 
     def createRelease(self, release):
-        raise NotImplementedError("TODO")
+        return self.runInsert('sideloader_release', release)
 
     def checkReleaseSchedule(self, release):
         raise NotImplementedError("TODO")
@@ -101,8 +110,9 @@ class FakeDB(object):
     def getReleases(self, flowid=None, waiting=None, lock=None):
         raise NotImplementedError("TODO")
 
+    @async
     def getRelease(self, id):
-        raise NotImplementedError("TODO")
+        return deepcopy(self._release[id])
 
     def getReleaseStream(self, id):
         raise NotImplementedError("TODO")
@@ -115,8 +125,9 @@ class FakeDB(object):
 
     # Flow queries
 
+    @async
     def getFlow(self, id):
-        raise NotImplementedError("TODO")
+        return deepcopy(self._releaseflow[id])
 
     def getFlowSignoffList(self, flow):
         raise NotImplementedError("TODO")
