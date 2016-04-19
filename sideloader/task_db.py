@@ -303,3 +303,8 @@ class SideloaderDB(object):
             ['id', 'flow_id', 'description', 'url', 'method', 'content_type',
              'payload', 'after_id', 'last_response'],
             flow_id=flow_id)
+
+    def setWebhookResponse(self, id, response):
+        return self.p.runOperation(
+            'UPDATE sideloader_webhook SET last_response=%s WHERE id=%s',
+            (response, id))

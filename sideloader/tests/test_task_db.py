@@ -442,3 +442,33 @@ class TestDB(unittest.TestCase):
 
         webhooks = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
         assert webhooks == []
+
+    @defer.inlineCallbacks
+    def test_getWebhooks(self):
+        """
+        We can get all webhooks for a release flow.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_1)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_2)
+
+        webhooks = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert id_sorted(webhooks) == [WEBHOOK_QA_1, WEBHOOK_QA_2]
+
+    @defer.inlineCallbacks
+    def test_setWebhookResponse(self):
+        """
+        We can update a webhook's last response.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_1)
+
+        [webhook] = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhook['last_response'] == ""
+        yield self.db.setWebhookResponse(WEBHOOK_QA_1['id'], "Hello.")
+        [webhook] = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhook['last_response'] == "Hello."

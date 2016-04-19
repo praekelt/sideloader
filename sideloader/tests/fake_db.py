@@ -191,3 +191,7 @@ class FakeDB(object):
     def getWebhooks(self, flow_id):
         return [deepcopy(webhook) for webhook in self._webhook.values()
                 if webhook['flow_id'] == flow_id]
+
+    @async
+    def setWebhookResponse(self, id, response):
+        self._webhook[id]['last_response'] = response

@@ -1,14 +1,56 @@
 import os
 
 from twisted.trial import unittest
-from twisted.internet import defer, reactor
+from twisted.internet import defer, reactor, task
+from twisted.web import resource, server
 
 from sideloader import tasks
 from sideloader.tests import fake_db, repotools
 from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, RELEASESTREAM_PROD, PROJECT_SIDELOADER,
-    RELEASEFLOW_QA, RELEASEFLOW_PROD, BUILD_1)
+    RELEASEFLOW_QA, RELEASEFLOW_PROD, BUILD_1, WEBHOOK_QA_1)
 from sideloader.tests.utils import dictmerge
+
+
+class WebhookCatcher(object):
+    """
+    A webserver to catch webhook calls.
+    """
+
+    def __init__(self, testcase):
+        self._testcase = testcase
+        self.queue = defer.DeferredQueue()
+        self._webserver = None
+        self.addr = None
+        self._url = None
+
+    @defer.inlineCallbacks
+    def start(self):
+        root = resource.Resource()
+        root.isLeaf = True
+        root.render = self._render
+        site_factory = server.Site(root)
+        self._webserver = yield reactor.listenTCP(
+            0, site_factory, interface='127.0.0.1')
+        self._testcase.addCleanup(self._webserver.loseConnection)
+        self._testcase.addCleanup(self._webserver.stopListening)
+        self.addr = self._webserver.getHost()
+        self._url = "http://%s:%s/" % (self.addr.host, self.addr.port)
+
+    def url(self, path):
+        return "/".join([self._url.rstrip("/"), path.lstrip("/")])
+
+    def _render(self, request):
+        self.queue.put(request)
+        return server.NOT_DONE_YET
+
+    def get_request(self):
+        return self.queue.get()
+
+    def reply(self, request, body="", code=200):
+        request.setResponseCode(code)
+        request.write(body)
+        request.finish()
 
 
 class FakeClient(object):
@@ -18,6 +60,8 @@ class FakeClient(object):
 class TestTasks(unittest.TestCase):
 
     def setUp(self):
+        # Wait a millisecond at the end of each test for any pending tasks.
+        self.addCleanup(task.deferLater, reactor, 0.001, lambda: None)
         self.client = FakeClient()
         localdir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.plug = tasks.Plugin({
@@ -288,3 +332,43 @@ class TestTasks(unittest.TestCase):
         self.assertEqual(release['build_id'], 1)
         self.assertEqual(release['waiting'], False)
         self.assertEqual(release['lock'], False)
+
+    @defer.inlineCallbacks
+    def test_runrelease_single_webhook(self):
+        """
+        We can successfully run a release.
+
+        This first creates a build and a release in the database, then runs the
+        release.
+        """
+        wc = WebhookCatcher(self)
+        yield wc.start()
+
+        repo = self.mkrepo('sideloader')
+        yield self.setup_db(
+            dictmerge(PROJECT_SIDELOADER, github_url=repo.url),
+            flow_defs=[RELEASEFLOW_QA])
+        yield self.runInsert(
+            'sideloader_webhook', dictmerge(WEBHOOK_QA_1, url=wc.url("h1")))
+
+        yield self.plug.call_build({'build_id': 1})
+
+        # FIXME: We dig directly into our fake db here, because we haven't
+        #        implemented FakeDB.getReleases() yet.
+        self.assertEqual(self.plug.db._release, {})
+        yield self._wait_for_build(1)
+        [release] = yield self.plug.db._release.values()
+        yield self.plug.call_runrelease({'release_id': release['id']})
+        [release] = yield self.plug.db._release.values()
+        self.assertEqual(release['build_id'], 1)
+        self.assertEqual(release['waiting'], False)
+        self.assertEqual(release['lock'], False)
+
+        hook_req = yield wc.get_request()
+        [webhook] = yield self.plug.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhook['last_response'] == ''
+        wc.reply(hook_req, "Happy.")
+        # Wait a bit for things to happen.
+        yield task.deferLater(reactor, 0.01, lambda: None)
+        [webhook] = yield self.plug.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhook['last_response'] == "Happy."
