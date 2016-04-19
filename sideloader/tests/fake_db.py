@@ -92,7 +92,10 @@ class FakeDB(object):
     def createRelease(self, release):
         return self.runInsert('sideloader_release', release)
 
+    # NOTE: Not async.
     def checkReleaseSchedule(self, release):
+        if not release['scheduled']:
+            return True
         raise NotImplementedError("TODO")
 
     def releaseSignoffCount(self, release_id):
@@ -101,7 +104,10 @@ class FakeDB(object):
     def signoff_remaining(self, release_id, flow):
         raise NotImplementedError("TODO")
 
+    @async
     def checkReleaseSignoff(self, release_id, flow):
+        if not flow['require_signoff']:
+            return True
         raise NotImplementedError("TODO")
 
     def countReleases(self, id, waiting=False, lock=False):
@@ -114,14 +120,21 @@ class FakeDB(object):
     def getRelease(self, id):
         return deepcopy(self._release[id])
 
+    @async
     def getReleaseStream(self, id):
-        raise NotImplementedError("TODO")
+        return deepcopy(self._releasestream[id])
 
+    @async
     def updateReleaseLocks(self, id, lock):
-        raise NotImplementedError("TODO")
+        assert isinstance(lock, bool)
+        self._release[id]['lock'] = lock
 
+    @async
     def updateReleaseState(self, id, lock=False, waiting=False):
-        raise NotImplementedError("TODO")
+        assert isinstance(lock, bool)
+        assert isinstance(waiting, bool)
+        self._release[id]['lock'] = lock
+        self._release[id]['waiting'] = waiting
 
     # Flow queries
 
@@ -132,8 +145,13 @@ class FakeDB(object):
     def getFlowSignoffList(self, flow):
         raise NotImplementedError("TODO")
 
+    # NOTE: Not async.
     def getFlowNotifyList(self, flow):
-        raise NotImplementedError("TODO")
+        if flow['notify']:
+            return flow['notify_list'].replace('\r', ' ').replace(
+                '\n', ' ').replace(',', ' ').strip().split()
+        else:
+            return []
 
     @async
     def getAutoFlows(self, id):

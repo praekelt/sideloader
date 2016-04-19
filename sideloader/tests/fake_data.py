@@ -4,13 +4,13 @@ from sideloader.tests.utils import datetime_utc
 RELEASESTREAM_QA = {
     'id': 1,
     'name': 'QA',
-    'push_command': 'push push push',
+    'push_command': "echo 'Pushing to QA: %s'",
 }
 
 RELEASESTREAM_PROD = {
     'id': 2,
     'name': 'PROD',
-    'push_command': 'push push push',
+    'push_command': "echo 'Pushing to PROD: %s'",
 }
 
 PROJECT_SIDELOADER = {
@@ -67,10 +67,20 @@ RELEASEFLOW_PROD = {
 
 BUILD_1 = {
     'id': 1,
-    'build_time': datetime_utc(2016, 4, 1),
+    'build_time': datetime_utc(2016, 4, 1, 0, 0, 0),
     'task_id': '1',
     'log': '',
     'project_id': 1,
     'state': 0,
     'build_file': '',
+}
+
+RELEASE_1 = {
+    'id': 1,
+    'flow_id': 1,
+    'build_id': 1,
+    'waiting': True,
+    'scheduled': None,
+    'release_date': datetime_utc(2016, 4, 1, 1, 0, 0),
+    'lock': False
 }

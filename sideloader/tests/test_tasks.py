@@ -259,3 +259,32 @@ class TestTasks(unittest.TestCase):
         self.assertEqual(release['flow_id'], RELEASEFLOW_QA['id'])
         self.assertEqual(release['scheduled'], None)
         self.assertEqual(release['waiting'], True)
+
+    @defer.inlineCallbacks
+    def test_runrelease(self):
+        """
+        We can successfully run a release.
+
+        This first creates a build and a release in the database, then runs the
+        release.
+        """
+        repo = self.mkrepo('sideloader')
+        yield self.setup_db(
+            dictmerge(PROJECT_SIDELOADER, github_url=repo.url),
+            flow_defs=[RELEASEFLOW_QA])
+        yield self.plug.call_build({'build_id': 1})
+
+        # FIXME: We dig directly into our fake db here, because we haven't
+        #        implemented FakeDB.getReleases() yet.
+        self.assertEqual(self.plug.db._release, {})
+        yield self._wait_for_build(1)
+        [release] = yield self.plug.db._release.values()
+        self.assertEqual(release['build_id'], 1)
+        self.assertEqual(release['waiting'], True)
+        self.assertEqual(release['lock'], False)
+
+        yield self.plug.call_runrelease({'release_id': release['id']})
+        [release] = yield self.plug.db._release.values()
+        self.assertEqual(release['build_id'], 1)
+        self.assertEqual(release['waiting'], False)
+        self.assertEqual(release['lock'], False)
