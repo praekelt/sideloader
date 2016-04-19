@@ -8,8 +8,12 @@ from sideloader import tasks
 from sideloader.tests import fake_db, repotools
 from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, RELEASESTREAM_PROD, PROJECT_SIDELOADER,
-    RELEASEFLOW_QA, RELEASEFLOW_PROD, BUILD_1, WEBHOOK_QA_1)
+    RELEASEFLOW_QA, RELEASEFLOW_PROD, BUILD_1, WEBHOOK_QA_1, WEBHOOK_QA_2)
 from sideloader.tests.utils import dictmerge
+
+
+def id_sorted(rows):
+    return sorted(rows, key=lambda r: r['id'])
 
 
 class WebhookCatcher(object):
@@ -60,14 +64,15 @@ class FakeClient(object):
 class TestTasks(unittest.TestCase):
 
     def setUp(self):
-        # Wait a millisecond at the end of each test for any pending tasks.
-        self.addCleanup(task.deferLater, reactor, 0.001, lambda: None)
         self.client = FakeClient()
         localdir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         self.plug = tasks.Plugin({
             'name': 'sideloader',
             'localdir': localdir,
         }, self.client, task_db=fake_db.FakeDB(reactor))
+
+    def wait(self, seconds):
+        return task.deferLater(reactor, seconds, lambda: None)
 
     def _wait_for_build(self, build_id):
 
@@ -333,13 +338,13 @@ class TestTasks(unittest.TestCase):
         self.assertEqual(release['waiting'], False)
         self.assertEqual(release['lock'], False)
 
+        # Wait for webhook processing, even though we don't have any.
+        yield self.wait(0.002)
+
     @defer.inlineCallbacks
     def test_runrelease_single_webhook(self):
         """
-        We can successfully run a release.
-
-        This first creates a build and a release in the database, then runs the
-        release.
+        After a release, we call a configured webhook.
         """
         wc = WebhookCatcher(self)
         yield wc.start()
@@ -365,10 +370,63 @@ class TestTasks(unittest.TestCase):
         self.assertEqual(release['lock'], False)
 
         hook_req = yield wc.get_request()
+        assert hook_req.method == WEBHOOK_QA_1['method']
+        assert hook_req.path == "/h1"
         [webhook] = yield self.plug.db.getWebhooks(RELEASEFLOW_QA['id'])
         assert webhook['last_response'] == ''
         wc.reply(hook_req, "Happy.")
         # Wait a bit for things to happen.
-        yield task.deferLater(reactor, 0.01, lambda: None)
+        yield self.wait(0.01)
         [webhook] = yield self.plug.db.getWebhooks(RELEASEFLOW_QA['id'])
         assert webhook['last_response'] == "Happy."
+
+    @defer.inlineCallbacks
+    def test_runrelease_two_webhooks(self):
+        """
+        After a release, we call all configured webhooks.
+        """
+        wc = WebhookCatcher(self)
+        yield wc.start()
+
+        repo = self.mkrepo('sideloader')
+        yield self.setup_db(
+            dictmerge(PROJECT_SIDELOADER, github_url=repo.url),
+            flow_defs=[RELEASEFLOW_QA])
+        yield self.runInsert(
+            'sideloader_webhook', dictmerge(WEBHOOK_QA_1, url=wc.url("h1")))
+        yield self.runInsert(
+            'sideloader_webhook', dictmerge(WEBHOOK_QA_2, url=wc.url("h2")))
+
+        yield self.plug.call_build({'build_id': 1})
+
+        # FIXME: We dig directly into our fake db here, because we haven't
+        #        implemented FakeDB.getReleases() yet.
+        self.assertEqual(self.plug.db._release, {})
+        yield self._wait_for_build(1)
+        [release] = yield self.plug.db._release.values()
+        yield self.plug.call_runrelease({'release_id': release['id']})
+        [release] = yield self.plug.db._release.values()
+        self.assertEqual(release['build_id'], 1)
+        self.assertEqual(release['waiting'], False)
+        self.assertEqual(release['lock'], False)
+
+        r1 = yield wc.get_request()
+        r2 = yield wc.get_request()
+        [hook_req1, hook_req2] = sorted([r1, r2], key=lambda r: r.path)
+        assert hook_req1.method == WEBHOOK_QA_1['method']
+        assert hook_req1.path == "/h1"
+        assert hook_req2.method == WEBHOOK_QA_2['method']
+        assert hook_req2.path == "/h2"
+
+        webhooks = yield self.plug.db.getWebhooks(RELEASEFLOW_QA['id'])
+        [wh1, wh2] = id_sorted(webhooks)
+        assert wh1['last_response'] == ''
+        assert wh2['last_response'] == ''
+        wc.reply(hook_req1, "Content.")
+        wc.reply(hook_req2, "Joyous.")
+        # Wait a bit for things to happen.
+        yield self.wait(0.01)
+        webhooks = yield self.plug.db.getWebhooks(RELEASEFLOW_QA['id'])
+        [wh1, wh2] = id_sorted(webhooks)
+        assert wh1['last_response'] == "Content."
+        assert wh2['last_response'] == "Joyous."
