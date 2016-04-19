@@ -10,7 +10,7 @@ from sideloader import task_db
 from sideloader.tests import fake_db
 from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, RELEASESTREAM_PROD, PROJECT_SIDELOADER, BUILD_1,
-    RELEASEFLOW_QA, RELEASEFLOW_PROD, RELEASE_1)
+    RELEASEFLOW_QA, RELEASEFLOW_PROD, RELEASE_1, WEBHOOK_QA_1, WEBHOOK_QA_2)
 from sideloader.tests.utils import dictmerge, now_utc
 
 
@@ -21,6 +21,10 @@ def maybe_fail(f, *args, **kw):
         raise
     except:
         return False, Failure()
+
+
+def id_sorted(rows):
+    return sorted(rows, key=lambda r: r['id'])
 
 
 class BothDBsProxy(object):
@@ -34,6 +38,12 @@ class BothDBsProxy(object):
         self._real_db = real_db
         self._fake_db = fake_db
 
+    def compare_for(self, name, rr, fr):
+        # Some methods need order-agnostic result comparisons.
+        if name in ['getWebhooks']:
+            return id_sorted(rr) == id_sorted(fr)
+        return rr == fr
+
     def __getattr__(self, name):
         realattr = getattr(self._real_db, name)
         fakeattr = getattr(self._fake_db, name)
@@ -46,7 +56,7 @@ class BothDBsProxy(object):
             assert fs, (
                 "Real operation succeeded, fake failed: %r" % (fr,))
 
-            assert rr == fr, (
+            assert self.compare_for(name, rr, fr), (
                 "Real operation returned %r, fake returned %r" % (rr, fr))
             return rr
 
@@ -80,7 +90,8 @@ class TestDB(unittest.TestCase):
 
     @defer.inlineCallbacks
     def clear_db(self):
-        for tbl in ['sideloader_release',
+        for tbl in ['sideloader_webhook',
+                    'sideloader_release',
                     'sideloader_build',
                     'sideloader_buildnumbers',
                     'sideloader_releaseflow',
@@ -399,9 +410,35 @@ class TestDB(unittest.TestCase):
     @defer.inlineCallbacks
     def test_getAutoFlows_no_flows(self):
         """
-        We can get all the autorelease flows for a project.
+        If a project has no autorelease flows, we get an empty list of them.
         """
         yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
         yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
         flows = yield self.db.getAutoFlows(1)
         assert flows == []
+
+    @defer.inlineCallbacks
+    def test_getWebhooks(self):
+        """
+        We can get all webhooks for a release flow.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_1)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_2)
+
+        webhooks = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert id_sorted(webhooks) == [WEBHOOK_QA_1, WEBHOOK_QA_2]
+
+    @defer.inlineCallbacks
+    def test_getWebhooks_no_webhooks(self):
+        """
+        If a release flow has no webhooks, we get an empty list of them.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+
+        webhooks = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhooks == []

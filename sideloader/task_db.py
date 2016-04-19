@@ -294,3 +294,12 @@ class SideloaderDB(object):
 
     def updateServerStatus(self, id, status):
         return self.p.runOperation('UPDATE sideloader_server SET status=%s WHERE id=%s', (status, id))
+
+    # Webhooks
+
+    def getWebhooks(self, flow_id):
+        return self.select(
+            'sideloader_webhook',
+            ['id', 'flow_id', 'description', 'url', 'method', 'content_type',
+             'payload', 'after_id', 'last_response'],
+            flow_id=flow_id)

@@ -27,6 +27,7 @@ class FakeDB(object):
         self._buildnumbers = {}
         self._releaseflow = {}
         self._release = {}
+        self._webhook = {}
 
     def _set_id(self, table, row):
         if 'id' not in row:
@@ -183,3 +184,10 @@ class FakeDB(object):
 
     def updateServerStatus(self, id, status):
         raise NotImplementedError("TODO")
+
+    # Webhooks
+
+    @async
+    def getWebhooks(self, flow_id):
+        return [deepcopy(webhook) for webhook in self._webhook.values()
+                if webhook['flow_id'] == flow_id]

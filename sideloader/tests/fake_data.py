@@ -82,5 +82,29 @@ RELEASE_1 = {
     'waiting': True,
     'scheduled': None,
     'release_date': datetime_utc(2016, 4, 1, 1, 0, 0),
-    'lock': False
+    'lock': False,
+}
+
+WEBHOOK_QA_1 = {
+    'id': 1,
+    'flow_id': RELEASEFLOW_QA['id'],
+    'description': 'QA webhook',
+    'url': 'http://example.com/hook1/token',
+    'method': 'GET',
+    'content_type': 'application/json',
+    'payload': '',
+    'after_id': None,
+    'last_response': '',
+}
+
+WEBHOOK_QA_2 = {
+    'id': 2,
+    'flow_id': RELEASEFLOW_QA['id'],
+    'description': 'Another QA webhook',
+    'url': 'http://example.com/hook2/token',
+    'method': 'GET',
+    'content_type': 'application/json',
+    'payload': '',
+    'after_id': None,
+    'last_response': '',
 }
