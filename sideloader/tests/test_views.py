@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.core.urlresolvers import reverse
+import pytest
 
 from sideloader.models import Project, ReleaseFlow, ReleaseStream, WebHook
 
@@ -146,8 +147,10 @@ class TestWebhook(TestCase):
 
     def assert_form_field_choices(self, url, field, choices):
         resp = self.client.get(url)
-        self.assertEqual(
-            list(resp.context['form'].fields[field].choices), choices)
+        # We're not using this at the moment.
+        assert field not in resp.context['form'].fields
+        # self.assertEqual(
+        #     list(resp.context['form'].fields[field].choices), choices)
 
     def test_new_webhook(self):
         """
@@ -171,6 +174,7 @@ class TestWebhook(TestCase):
         self.assertRedirects(
             resp, reverse("webhooks", args=[self.qa_flow.pk]))
 
+    @pytest.mark.xfail(reason="We don't support chaining webhooks yet.")
     def test_chain_webhook(self):
         """
         We can chain webhooks.

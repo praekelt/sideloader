@@ -50,14 +50,16 @@ class WebhookForm(BaseModelForm):
         if 'instance' not in kw:
             kw['instance'] = models.WebHook(flow_id=kw.pop('flow_id'))
         super(WebhookForm, self).__init__(*args, **kw)
-        self.fields['after'].queryset = models.WebHook.objects.filter(
-            flow_id=kw['instance'].flow_id).order_by('description')
+        # We're not using this at the moment.
+        # self.fields['after'].queryset = models.WebHook.objects.filter(
+        #     flow_id=kw['instance'].flow_id).order_by('description')
 
-    after = forms.ModelChoiceField(
-        queryset=models.WebHook.objects.none(),  # We override this in init.
-        required=False,
-        help_text="Only run this webhook if the selected one succeeds"
-    )
+    # We're not using this at the moment.
+    # after = forms.ModelChoiceField(
+    #     queryset=models.WebHook.objects.none(),  # We override this in init.
+    #     required=False,
+    #     help_text="Only run this webhook if the selected one succeeds"
+    # )
 
     payload = forms.CharField(
         widget=forms.Textarea,
@@ -82,7 +84,7 @@ class WebhookForm(BaseModelForm):
 
     class Meta:
         model = models.WebHook
-        exclude = ('flow', 'last_response',)
+        exclude = ('flow', 'last_response', 'after')
 
 
 class FlowForm(BaseModelForm):
