@@ -14,3 +14,4 @@ pyyaml
 django-crispy-forms
 rhumba
 PyOpenSSL
+treq

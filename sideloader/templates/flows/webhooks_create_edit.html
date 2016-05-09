@@ -1,0 +1,42 @@
+{% extends "fragments/default.html" %}
+{% load crispy_forms_tags %}
+{% block navbar %}
+{% include "fragments/navbar.html" %}
+{% endblock %}
+
+{% block head %}
+<link href="/static/css/select2.css" rel="stylesheet"/>
+<link href="/static/css/select2-bootstrap.css" rel="stylesheet"/>
+{% endblock %}
+
+{% block content %}
+<div class="col-lg-9" id="formcontainer">
+    <h4 style="margin-bottom:10px">{% if webhook %}Edit webhook{% else %}Add webhook{% endif %}</h4>
+    {% crispy form %}
+
+</div>
+{% endblock %}
+
+{% block script %}
+<script src="/static/js/select2.min.js"></script>
+<script>
+    $(function () {
+
+        function togglePayload(){
+            var method = $("#id_method").val();
+
+            console.log(method);
+
+            if (method=="POST") {
+                $("#div_id_payload").show();
+            }
+            else {
+                $("#div_id_payload").hide();
+            }
+        }
+                
+        $('#id_method').change(togglePayload);
+        togglePayload();
+    });
+</script>
+{% endblock %}

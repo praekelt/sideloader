@@ -7,6 +7,8 @@ import datetime
 import traceback
 import yaml
 
+import treq
+
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
 
@@ -401,6 +403,27 @@ class Plugin(RhumbaPlugin):
                     yield self.pushTargets(release, flow)
 
                 yield self.db.updateReleaseLocks(release['id'], False)
+
+                reactor.callLater(0, self.call_webhooks,
+                                  {'release_id': release['id']})
+
+    @defer.inlineCallbacks
+    def call_webhooks(self, params):
+        release = yield self.db.getRelease(params['release_id'])
+        webhooks = yield self.db.getWebhooks(release['flow_id'])
+        yield defer.gatherResults(
+            [self.doWebhook(webhook) for webhook in webhooks])
+
+    @defer.inlineCallbacks
+    def doWebhook(self, wh):
+        self.log("Calling webhook: %s %s" % (wh['method'], wh['url']))
+        rsp = yield treq.request(
+            wh['method'], wh['url'], data=wh['payload'],
+            persistent=False, timeout=10)
+        rsp_content = yield rsp.content()
+        self.log("Webhook response (%s %s): %s %r" % (
+            wh['method'], wh['url'], rsp.code, rsp_content))
+        yield self.db.setWebhookResponse(wh['id'], rsp_content)
 
     @cron(secs="*/10")
     @defer.inlineCallbacks

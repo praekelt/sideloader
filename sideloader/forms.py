@@ -33,12 +33,59 @@ class ReleaseForm(BaseModelForm):
         model = models.ReleaseStream
         fields = ('name', 'push_command',)
 
+
 class ReleasePushForm(BaseModelForm):
     tz = forms.CharField(widget=forms.HiddenInput())
 
     class Meta:
         model = models.Release
-        exclude = ('release_date', 'flow', 'build', 'waiting')
+        exclude = ('release_date', 'flow', 'build', 'waiting',)
+
+
+class WebhookForm(BaseModelForm):
+    def __init__(self, *args, **kw):
+        # The parent flow needs to be set, but can't have a form field. We also
+        # need to filter the 'after' field's choices based on the parent flow.
+        # Thus we get the hackery below.
+        if 'instance' not in kw:
+            kw['instance'] = models.WebHook(flow_id=kw.pop('flow_id'))
+        super(WebhookForm, self).__init__(*args, **kw)
+        # We're not using this at the moment.
+        # self.fields['after'].queryset = models.WebHook.objects.filter(
+        #     flow_id=kw['instance'].flow_id).order_by('description')
+
+    # We're not using this at the moment.
+    # after = forms.ModelChoiceField(
+    #     queryset=models.WebHook.objects.none(),  # We override this in init.
+    #     required=False,
+    #     help_text="Only run this webhook if the selected one succeeds"
+    # )
+
+    payload = forms.CharField(
+        widget=forms.Textarea,
+        label="Payload",
+        required=False,
+        help_text="A payload to send with this request")
+
+    content_type = forms.ChoiceField(
+        label='Content type',
+        choices=(
+            ('application/json', 'application/json'),
+        )
+    )
+
+    method = forms.ChoiceField(
+        label='Request Method',
+        choices=(
+            ('POST', 'POST'),
+            ('GET', 'GET'),
+        )
+    )
+
+    class Meta:
+        model = models.WebHook
+        exclude = ('flow', 'last_response', 'after')
+
 
 class FlowForm(BaseModelForm):
     targets = forms.ModelMultipleChoiceField(
@@ -103,12 +150,12 @@ class FlowForm(BaseModelForm):
     class Meta:
         exclude = ('project',)
         model = models.ReleaseFlow
-        fields = [
+        fields = (
             'name', 'stream_mode', 'stream', 'targets',
             'service_restart', 'service_pre_stop', 'puppet_run',
             'require_signoff', 'signoff_list', 'quorum', 'notify', 
             'notify_list', 'auto_release'
-        ]
+        )
 
 class ProjectForm(BaseModelForm):
     github_url = forms.CharField(label="Git checkout URL")

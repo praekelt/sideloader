@@ -231,6 +231,7 @@ def module_scheme(request, id):
     return HttpResponse(module.structure,
         content_type='application/json')
 
+
 @login_required
 def manifest_view(request, id):
     release = models.ReleaseFlow.objects.get(id=id)
@@ -317,6 +318,75 @@ def manifest_edit(request, id):
         'projects': getProjects(request),
         'project': project
     })
+
+@login_required
+def webhooks_view(request, id):
+    release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
+
+    webhooks = release.webhook_set.all()
+
+    return render(request, 'flows/webhooks_view.html', {
+        'projects': getProjects(request),
+        'webhooks': webhooks,
+        'project': release.project,
+        'release': release
+    })
+
+@login_required
+def webhooks_delete(request, id):
+    webhook = models.WebHook.objects.get(id=id)
+    release = webhook.flow
+    webhook.delete()
+
+    return redirect('webhooks', id=release.id)
+
+@login_required
+def webhooks_edit(request, id):
+    webhook = models.WebHook.objects.get(id=id)
+    release = webhook.flow
+    project = release.project 
+
+    if request.method == "POST":
+        form = forms.WebhookForm(request.POST, instance=webhook)
+
+        if form.is_valid():
+            hook = form.save(commit=False)
+            hook.save()
+
+            return redirect('webhooks', id=release.id)
+
+    else:
+        form = forms.WebhookForm(instance=webhook)
+
+    return render(request, 'flows/webhooks_create_edit.html', {
+        'form': form,
+        'webhook': webhook,
+        'project': project,
+        'release': release,
+        'projects': getProjects(request)
+    })
+
+@login_required
+def webhooks_create(request, id):
+    release = models.ReleaseFlow.objects.get(id=id)
+    project = release.project
+
+    if request.method == "POST":
+        form = forms.WebhookForm(request.POST, flow_id=release.id)
+        if form.is_valid():
+            form.save()
+            return redirect('webhooks', id=release.id)
+    else:
+        form = forms.WebhookForm(flow_id=release.id)
+
+    return render(request, 'flows/webhooks_create_edit.html', {
+        'form': form,
+        'project': project,
+        'release': release,
+        'projects': getProjects(request)
+    })
+
 
 @login_required
 def workflow_create(request, project):

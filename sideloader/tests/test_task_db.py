@@ -3,14 +3,28 @@ Tests for sideloader.task_db.
 """
 
 from twisted.internet import defer, reactor
+from twisted.python.failure import Failure
 from twisted.trial import unittest
 
 from sideloader import task_db
 from sideloader.tests import fake_db
 from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, RELEASESTREAM_PROD, PROJECT_SIDELOADER, BUILD_1,
-    RELEASEFLOW_QA, RELEASEFLOW_PROD)
+    RELEASEFLOW_QA, RELEASEFLOW_PROD, RELEASE_1, WEBHOOK_QA_1, WEBHOOK_QA_2)
 from sideloader.tests.utils import dictmerge, now_utc
+
+
+def maybe_fail(f, *args, **kw):
+    try:
+        return True, f(*args, **kw)
+    except NotImplementedError:
+        raise
+    except:
+        return False, Failure()
+
+
+def id_sorted(rows):
+    return sorted(rows, key=lambda r: r['id'])
 
 
 class BothDBsProxy(object):
@@ -24,15 +38,17 @@ class BothDBsProxy(object):
         self._real_db = real_db
         self._fake_db = fake_db
 
+    def compare_for(self, name, rr, fr):
+        # Some methods need order-agnostic result comparisons.
+        if name in ['getWebhooks']:
+            return id_sorted(rr) == id_sorted(fr)
+        return rr == fr
+
     def __getattr__(self, name):
         realattr = getattr(self._real_db, name)
         fakeattr = getattr(self._fake_db, name)
 
-        @defer.inlineCallbacks
-        def callboth(self, *args, **kw):
-            df = fakeattr(self, *args, **kw)
-            dr = realattr(self, *args, **kw)
-            [(rs, rr), (fs, fr)] = yield defer.DeferredList([dr, df])
+        def result(rs, rr, fs, fr):
             if not rs:
                 assert not fs, (
                     "Real operation failed, fake succeeded: %r" % (rr,))
@@ -40,9 +56,21 @@ class BothDBsProxy(object):
             assert fs, (
                 "Real operation succeeded, fake failed: %r" % (fr,))
 
-            assert rr == fr, (
+            assert self.compare_for(name, rr, fr), (
                 "Real operation returned %r, fake returned %r" % (rr, fr))
-            defer.returnValue(rr)
+            return rr
+
+        @defer.inlineCallbacks
+        def result_async(df, dr):
+            [(rs, rr), (fs, fr)] = yield defer.DeferredList([dr, df])
+            defer.returnValue(result(rs, rr, fs, fr))
+
+        def callboth(self, *args, **kw):
+            fs, fr = maybe_fail(fakeattr, self, *args, **kw)
+            rs, rr = maybe_fail(realattr, self, *args, **kw)
+            if isinstance(rr, defer.Deferred):
+                return result_async(fr, rr)
+            return result(rs, rr, fs, fr)
 
         return callboth
 
@@ -62,7 +90,8 @@ class TestDB(unittest.TestCase):
 
     @defer.inlineCallbacks
     def clear_db(self):
-        for tbl in ['sideloader_release',
+        for tbl in ['sideloader_webhook',
+                    'sideloader_release',
                     'sideloader_build',
                     'sideloader_buildnumbers',
                     'sideloader_releaseflow',
@@ -247,11 +276,98 @@ class TestDB(unittest.TestCase):
             'waiting': True,
             'scheduled': None,
             'release_date': now_utc(),
-            'lock': False
+            'lock': False,
         }
         [release_id] = yield self.db.createRelease(release_data)
         release = yield self.db.getRelease(release_id)
         self.assertEqual(release, dictmerge(release_data, id=release_id))
+
+    @defer.inlineCallbacks
+    def test_getReleaseStream(self):
+        """
+        We can get a release stream.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        stream = yield self.db.getReleaseStream(RELEASESTREAM_QA['id'])
+        assert stream == RELEASESTREAM_QA
+
+    @defer.inlineCallbacks
+    def test_getReleaseStream_missing(self):
+        """
+        We can't get a release stream that doesn't exist.
+        """
+        yield self.assertFailure(self.db.getReleaseStream(12), Exception)
+
+    @defer.inlineCallbacks
+    def test_checkReleaseSchedule_unscheduled(self):
+        """
+        We can check the schedule status of a release which isn't scheduled.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_build', BUILD_1)
+        yield self.db.runInsert('sideloader_release', RELEASE_1)
+
+        assert RELEASE_1['scheduled'] is None
+        scheduled_now = self.db.checkReleaseSchedule(RELEASE_1)
+        assert scheduled_now is True
+
+    @defer.inlineCallbacks
+    def test_checkReleaseSignoff_none_required(self):
+        """
+        We can check the signoff status of a release which doesn't require
+        signoff.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_build', BUILD_1)
+        yield self.db.runInsert('sideloader_release', RELEASE_1)
+
+        assert RELEASEFLOW_QA['require_signoff'] is False
+        signed_off = yield self.db.checkReleaseSignoff(1, RELEASEFLOW_QA)
+        assert signed_off is True
+
+    @defer.inlineCallbacks
+    def test_updateReleaseLocks(self):
+        """
+        We can update the release lock.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_build', BUILD_1)
+        yield self.db.runInsert('sideloader_release', RELEASE_1)
+
+        assert RELEASE_1['lock'] is False
+        yield self.db.updateReleaseLocks(1, True)
+        release = yield self.db.getRelease(1)
+        assert release['lock'] is True
+        yield self.db.updateReleaseLocks(1, False)
+        release = yield self.db.getRelease(1)
+        assert release['lock'] is False
+
+    @defer.inlineCallbacks
+    def test_updateReleaseState_no_args(self):
+        """
+        We can update the release state with default values.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_build', BUILD_1)
+        yield self.db.runInsert('sideloader_release', RELEASE_1)
+
+        yield self.db.updateReleaseLocks(1, True)
+        release = yield self.db.getRelease(1)
+        assert release['lock'] is True
+        assert release['waiting'] is True
+
+        yield self.db.updateReleaseState(1)
+        release = yield self.db.getRelease(1)
+        assert release['lock'] is False
+        assert release['waiting'] is False
 
     @defer.inlineCallbacks
     def test_getFlow(self):
@@ -263,6 +379,13 @@ class TestDB(unittest.TestCase):
         yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
         flow = yield self.db.getFlow(1)
         assert flow == RELEASEFLOW_QA
+
+    def test_getFlowNotifyList_empty(self):
+        """
+        We get an empty notify list when a flow has nobody to notify.
+        """
+        notify_list = self.db.getFlowNotifyList(RELEASEFLOW_QA)
+        assert notify_list == []
 
     @defer.inlineCallbacks
     def test_getReleaseFlow_missing(self):
@@ -287,9 +410,51 @@ class TestDB(unittest.TestCase):
     @defer.inlineCallbacks
     def test_getAutoFlows_no_flows(self):
         """
-        We can get all the autorelease flows for a project.
+        If a project has no autorelease flows, we get an empty list of them.
         """
         yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
         yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
         flows = yield self.db.getAutoFlows(1)
         assert flows == []
+
+    @defer.inlineCallbacks
+    def test_getWebhooks(self):
+        """
+        We can get all webhooks for a release flow.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_1)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_2)
+
+        webhooks = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert id_sorted(webhooks) == [WEBHOOK_QA_1, WEBHOOK_QA_2]
+
+    @defer.inlineCallbacks
+    def test_getWebhooks_no_webhooks(self):
+        """
+        If a release flow has no webhooks, we get an empty list of them.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+
+        webhooks = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhooks == []
+
+    @defer.inlineCallbacks
+    def test_setWebhookResponse(self):
+        """
+        We can update a webhook's last response.
+        """
+        yield self.db.runInsert('sideloader_releasestream', RELEASESTREAM_QA)
+        yield self.db.runInsert('sideloader_project', PROJECT_SIDELOADER)
+        yield self.db.runInsert('sideloader_releaseflow', RELEASEFLOW_QA)
+        yield self.db.runInsert('sideloader_webhook', WEBHOOK_QA_1)
+
+        [webhook] = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhook['last_response'] == ""
+        yield self.db.setWebhookResponse(WEBHOOK_QA_1['id'], "Hello.")
+        [webhook] = yield self.db.getWebhooks(RELEASEFLOW_QA['id'])
+        assert webhook['last_response'] == "Hello."

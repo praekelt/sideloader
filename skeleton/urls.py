@@ -27,10 +27,15 @@ urlpatterns = patterns('',
     url(r'^workflow/push/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_push', name='workflow_push'),
     url(r'^workflow/schedule/(?P<flow>[\w-]+)/(?P<build>[\w-]+)$', 'sideloader.views.workflow_schedule', name='workflow_schedule'),
 
-    url(r'^workflow/manifests/(?P<id>[\w-]+)$', 'sideloader.views.manifest_view', name='manifest_view'),
-    url(r'^workflow/manifests/add/(?P<id>[\w-]+)$', 'sideloader.views.manifest_add', name='manifest_add'),
-    url(r'^workflow/manifests/edit/(?P<id>[\w-]+)$', 'sideloader.views.manifest_edit', name='manifest_edit'),
-    url(r'^workflow/manifests/delete/(?P<id>[\w-]+)$', 'sideloader.views.manifest_delete', name='manifest_delete'),
+    url(r'^workflow/manifests/(?P<id>[\d]+)$', 'sideloader.views.manifest_view', name='manifest_view'),
+    url(r'^workflow/manifests/add/(?P<id>[\d]+)$', 'sideloader.views.manifest_add', name='manifest_add'),
+    url(r'^workflow/manifests/edit/(?P<id>[\d]+)$', 'sideloader.views.manifest_edit', name='manifest_edit'),
+    url(r'^workflow/manifests/delete/(?P<id>[\d]+)$', 'sideloader.views.manifest_delete', name='manifest_delete'),
+
+    url(r'^workflow/webhooks/(?P<id>[\d]+)$', 'sideloader.views.webhooks_view', name='webhooks'),
+    url(r'^workflow/webhooks/(?P<id>[\d]+)/create$', 'sideloader.views.webhooks_create', name='webhooks_create'),
+    url(r'^workflow/webhooks/edit/(?P<id>[\d]+)$', 'sideloader.views.webhooks_edit', name='webhooks_edit'),
+    url(r'^workflow/webhooks/delete/(?P<id>[\d]+)$', 'sideloader.views.webhooks_delete', name='webhooks_delete'),
 
     # Modules
     url(r'^modules/edit/(?P<id>[\w]+)$', 'sideloader.views.module_edit', name='module_edit'),
