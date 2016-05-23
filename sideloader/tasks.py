@@ -5,6 +5,9 @@ import sys
 import time
 import datetime
 import traceback
+import yaml
+
+import treq
 
 from email.MIMEText import MIMEText
 from email.MIMEMultipart import MIMEMultipart
@@ -17,7 +20,8 @@ from twisted.internet import defer, reactor, protocol
 from twisted.python import log
 from twisted.enterprise import adbapi
 
-from rhumba.plugin import RhumbaPlugin, fork
+from rhumba.plugin import RhumbaPlugin
+from rhumba.utils import fork
 from rhumba import cron
 
 
@@ -52,10 +56,22 @@ class BuildProcess(protocol.ProcessProtocol):
             self.project_id, self.id, self.idhash)
 
 class Plugin(RhumbaPlugin):
-    def __init__(self, *a):
-        RhumbaPlugin.__init__(self, *a)
+    def __init__(self, *a, **kw):
+        self.db = kw.pop('task_db', None)
+        RhumbaPlugin.__init__(self, *a, **kw)
 
-        self.db = task_db.SideloaderDB()
+        if self.db is None:
+            self.db = task_db.SideloaderDB()
+
+        self.local_path = self.config.get('localdir', 
+            os.path.join(os.path.dirname(sys.argv[0]), '../..'))
+        self.buildpack = os.path.join(self.local_path, 'bin/build_package')
+
+        self.sl_config = yaml.load(open(
+            os.path.join(self.local_path, 'config.yaml')))
+
+        self.workspace = self.sl_config.get('workspace_base',
+            '/workspace')
 
         self.build_locks = {}
 
@@ -197,10 +213,13 @@ class Plugin(RhumbaPlugin):
 
             build = yield self.db.getBuild(release['build_id'])
 
-            yield self.sendNotification('Deployment started for build %s -> %s' % (
-                build['build_file'],
-                server['name']
-            ), project['id'])
+            yield self.sendNotification(
+                'Deployment started for build %s -> %s' % (
+                    build['build_file'],
+                    server['name']
+                ),
+                project['id']
+            )
 
             yield self.db.updateTargetState(target['id'], 1)
 
@@ -246,9 +265,12 @@ class Plugin(RhumbaPlugin):
                             ])
                         )
 
-                    yield self.sendNotification('Deployment of build %s to %s failed!' % (
-                        build['build_file'], server['name']
-                    ), project['id'])
+                    yield self.sendNotification(
+                        'Deployment of build %s to %s failed!' % (
+                            build['build_file'], server['name']
+                        ),
+                        project['id']
+                    )
 
                     # Start services back up even on failure
                     if flow['service_pre_stop']:
@@ -272,16 +294,20 @@ class Plugin(RhumbaPlugin):
 
                     yield self.db.updateTargetLog(target['id'],
                         '\n'.join([
-                            stop, result['stdout'], result['stderr'], puppet, start, restart
+                            stop, result['stdout'], result['stderr'], puppet,
+                            start, restart
                         ])
                     )
 
                     yield self.db.updateTargetBuild(target['id'], build['id'])
 
-                    yield self.sendNotification('Deployment of build %s to %s complete' % (
-                        build['build_file'],
-                        server['name']
-                    ), project['id'])
+                    yield self.sendNotification(
+                        'Deployment of build %s to %s complete' % (
+                            build['build_file'],
+                            server['name']
+                        ),
+                        project['id']
+                    )
 
                 yield self.db.updateServerStatus(server['id'], "Reachable")
 
@@ -294,10 +320,13 @@ class Plugin(RhumbaPlugin):
 
                 yield self.db.updateServerStatus(server['id'], ''.join(lines))
                
-                yield self.sendNotification('Deployment of build %s to %s failed!' % (
-                    build['build_file'],
-                    server['name']
-                ), project['id'])
+                yield self.sendNotification(
+                    'Deployment of build %s to %s failed!' % (
+                        build['build_file'],
+                        server['name']
+                    ),
+                    project['id']
+                )
 
 
         yield self.db.updateReleaseState(release['id'])
@@ -322,7 +351,7 @@ class Plugin(RhumbaPlugin):
             result = yield fork('/bin/sh', ('-c', push_cmd % build['build_file']))
         else:
             result = yield fork('/bin/sh', ('-c', push_cmd % os.path.join(
-                '/workspace/packages/', build['build_file'])))
+                self.workspace, 'packages', build['build_file'])))
 
         self.log(repr(result))
 
@@ -375,6 +404,27 @@ class Plugin(RhumbaPlugin):
 
                 yield self.db.updateReleaseLocks(release['id'], False)
 
+                reactor.callLater(0, self.call_webhooks,
+                                  {'release_id': release['id']})
+
+    @defer.inlineCallbacks
+    def call_webhooks(self, params):
+        release = yield self.db.getRelease(params['release_id'])
+        webhooks = yield self.db.getWebhooks(release['flow_id'])
+        yield defer.gatherResults(
+            [self.doWebhook(webhook) for webhook in webhooks])
+
+    @defer.inlineCallbacks
+    def doWebhook(self, wh):
+        self.log("Calling webhook: %s %s" % (wh['method'], wh['url']))
+        rsp = yield treq.request(
+            wh['method'], wh['url'], data=wh['payload'],
+            persistent=False, timeout=10)
+        rsp_content = yield rsp.content()
+        self.log("Webhook response (%s %s): %s %r" % (
+            wh['method'], wh['url'], rsp.code, rsp_content))
+        yield self.db.setWebhookResponse(wh['id'], rsp_content)
+
     @cron(secs="*/10")
     @defer.inlineCallbacks
     def call_checkreleases(self, params):
@@ -410,9 +460,9 @@ class Plugin(RhumbaPlugin):
 
     @defer.inlineCallbacks
     def endBuild(self, code, project_id, build_id, idhash):
-        workspace = os.path.join('/workspace', idhash)
+        workspace = os.path.join(self.workspace, idhash)
         package = os.path.join(workspace, 'package')
-        packages = '/workspace/packages'
+        packages = os.path.join(self.workspace, 'packages')
         project = yield self.db.getProject(project_id)
         dtype = project['deploy_type']
 
@@ -431,16 +481,20 @@ class Plugin(RhumbaPlugin):
                 os.makedirs(packages)
 
             if dtype == 'docker':
-                yield self.db.setBuildState(build_id, 1)
                 yield self.db.setBuildFile(build_id, project['package_name'])
+                yield self.db.setBuildState(build_id, 1)
 
                 flows = yield self.db.getAutoFlows(project_id)
                 if flows:
                     for flow in flows:
-                        reactor.callLater(0, self.doRelease, build_id, flow['id'])
+                        reactor.callLater(0, self.doRelease, build_id,
+                            flow['id'])
             else:
 
-                debs = [i for i in os.listdir(package) if ((i[-4:]=='.deb') or (i[-4:]=='.rpm'))]
+                debs = [
+                    i for i in os.listdir(package)
+                    if ((i[-4:]=='.deb') or (i[-4:]=='.rpm'))
+                ]
 
                 if not debs:
                     # We must have failed actually
@@ -454,8 +508,8 @@ class Plugin(RhumbaPlugin):
                 else:
                     deb = debs[0]
 
-                    yield self.db.setBuildState(build_id, 1)
                     yield self.db.setBuildFile(build_id, deb)
+                    yield self.db.setBuildState(build_id, 1)
 
                     reactor.callLater(0, self.sendNotification,
                         'Build <http://%s/projects/build/view/%s|#%s> successful' % (
@@ -464,42 +518,29 @@ class Plugin(RhumbaPlugin):
                         project_id)
 
                     # Relocate the package to our archive
-                    shutil.move(os.path.join(package, deb), os.path.join(packages, deb))
+                    shutil.move(os.path.join(package, deb),
+                        os.path.join(packages, deb))
 
                     # Find any auto-release streams
                     # XXX Implement auto flow XXX
                     flows = yield self.db.getAutoFlows(project_id)
                     if flows:
                         for flow in flows:
-                            reactor.callLater(0, self.doRelease, build_id, flow['id'])
+                            reactor.callLater(0, self.doRelease, build_id,
+                                flow['id'])
 
     @defer.inlineCallbacks
-    def call_build(self, params):
-        """
-        Use subprocess to execute a build, update the db with results along the way
-        """
+    def doBuild(self, build_id, build, project):
+        project_id = project['id']
         
-        build_id = params['build_id']
-
-        build = yield self.db.getBuild(build_id)
-
-        project_id = build['project_id']
-
-        if project_id in self.build_locks:
-            if (time.time() - self.build_locks[project_id]) < 1800:
-                # Don't build
-                defer.returnValue(None)
-
-        self.build_locks[project_id] = time.time()
-
-        project = yield self.db.getProject(project_id)
-        
-        chunks = project['github_url'].split(':')[1].split('/')
-        repo = chunks[-1][:-4]
+        try:
+            chunks = project['github_url'].split(':')[1].split('/')
+            repo = chunks[-1][:-4]
+        except:
+            raise Exception("Could not parse garbage url: %s" % project['github_url'])
 
         # Get a build number
         build_num = yield self.db.getBuildNumber(repo)
-
         if not build_num:
             yield self.db.setBuildNumber(repo, build_num, create=True)
 
@@ -508,21 +549,19 @@ class Plugin(RhumbaPlugin):
         # Increment the project build number
         yield self.db.setBuildNumber(repo, build_num)
 
-        local = self.config.get('localdir', 
-            os.path.join(os.path.dirname(sys.argv[0]), '../..'))
-        buildpack = os.path.join(local, 'bin/build_package')
-
         # Figure out some directory paths
 
         if settings.DEBUG:
-            print "Executing build %s %s" % (project['github_url'], project['branch'])
+            print "Executing build %s %s" % (
+                project['github_url'], project['branch'])
 
         reactor.callLater(0, self.sendNotification, 
             'Build <http://%s/projects/build/view/%s|#%s> started for branch %s' % (
                 settings.SIDELOADER_DOMAIN, build_id, build_id, project['branch']
             ), project_id)
 
-        args = ['build_package', '--branch', project['branch'], '--build', str(build_num), '--id', project['idhash']]
+        args = ['build_package', '--branch', project['branch'], '--build',
+            str(build_num), '--id', project['idhash']]
 
         if project['deploy_file']:
             args.extend(['--deploy-file', project['deploy_file']])
@@ -543,10 +582,37 @@ class Plugin(RhumbaPlugin):
             args.extend(['--dtype', project['deploy_type']])
 
         args.append(project['github_url'])
+        self.log('Spawning build %s: %s :: %s %s' % (build_id, self.local_path,
+            self.buildpack, repr(args)))
 
-        self.log('Spawning build %s: %s :: %s %s' % (build_id, local, buildpack, repr(args)))
+        buildProcess = BuildProcess(build_id, project_id, project['idhash'],
+            self.db, self.endBuild)
 
-        buildProcess = BuildProcess(build_id, project_id, project['idhash'], self.db, self.endBuild)
+        proc = reactor.spawnProcess(buildProcess, self.buildpack,
+            args=args, path=self.local_path, env=os.environ)
 
-        proc = reactor.spawnProcess(buildProcess, buildpack, args=args, path=local, env=os.environ)
+    @defer.inlineCallbacks
+    def call_build(self, params):
+        """
+        Use subprocess to execute a build, update the db with results
+        along the way
+        """
+        
+        build_id = params['build_id']
+        build = yield self.db.getBuild(build_id)
+        project_id = build['project_id']
 
+        if project_id in self.build_locks:
+            if (time.time() - self.build_locks[project_id]) < 1800:
+                # Don't build
+                defer.returnValue(None)
+
+        self.build_locks[project_id] = time.time()
+
+        project = yield self.db.getProject(project_id)
+
+        try:
+            yield self.doBuild(build_id, build, project)
+        except Exception, e:
+            yield self.db.updateBuildLog(build_id, str(e))
+            yield self.endBuild(11, project_id, build_id, project['idhash'])

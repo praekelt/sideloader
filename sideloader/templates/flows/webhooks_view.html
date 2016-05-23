@@ -1,0 +1,45 @@
+{% extends "fragments/default.html" %}
+{% block navbar %}
+{% include "fragments/navbar.html" with active="releases" %}
+{% endblock %}
+
+{% block content %}
+
+<div class="col-lg-9">
+    <h4>{{project.name}} {{release.name}} Webhooks</h4>
+    <p>
+        {% if user.is_superuser %}
+        <a href="{% url 'webhooks_create' id=release.id %}" class="btn btn-default">Create new</a>
+        {% endif %}
+        {% if webhooks %}
+        <table class="table table-hover table-bordered table-condensed">
+          <thead>
+            <tr>
+              <th>Description</th><th>URL</th><th>Method</th><th>Parent</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for webhook in webhooks %}
+            <tr>
+              <td>{{ webhook.description }}</td>
+              <td>{{ webhook.url }}</td>
+              <td>{{ webhook.method }}</td>
+              <td>{{ webhook.after.description }}</td>
+              <td width="90em">
+                <div class="btn-group btn-group-sm">
+                  <a class="btn btn-default" href="{% url 'webhooks_edit' id=webhook.id %}" title="Edit"><span class="glyphicon glyphicon-edit electric"></span></a>
+                  <a class="btn btn-default" href="{% url 'webhooks_delete' id=webhook.id %}" title="Delete"><span class="glyphicon glyphicon-remove electric"></span></a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <br/><br/>
+        No releases configured
+        {% endif %}
+    </p>
+</div>
+
+{% endblock %}

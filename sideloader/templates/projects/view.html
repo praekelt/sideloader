@@ -35,13 +35,13 @@ Not Authorized
     <p>
     {% if project.releaseflow_set.all %}
         <table class="table table-hover table-bordered table-condensed">
+            <thead><tr>
+                <th>Name</th>
+                <th>Auto</th>
+                <th>Current Release</th>
+                <th></th>
+            </tr></thead>
             <tbody>
-                <thead><tr>
-                    <th>Name</th>
-                    <th>Auto</th>
-                    <th>Current Release</th>
-                    <th></th>
-                </tr></thead>
                 {% for workflow in project.releaseflow_set.all %}
                 <tr>
                     <td>{{ workflow.name }}</td>
@@ -66,9 +66,9 @@ Not Authorized
                     {% endif %}
                     <td width="120em">
                         <div class="btn-group btn-group-sm">
-                            <a class="btn btn-default" href="{% url 'manifest_view' id=workflow.id %}" title="Configure"><span class="glyphicon glyphicon-wrench electric"></span></a>
                             {% if user.is_superuser %}
                             <a class="btn btn-default" href="{% url 'workflow_edit' id=workflow.id %}" title="Edit"><span class="glyphicon glyphicon-edit electric"></span></a>
+                            <a class="btn btn-default" href="{% url 'webhooks' id=workflow.id %}" title="Webhooks"><span class="glyphicon glyphicon-link electric"</i></a>
                             <a class="btn btn-default" href="{% url 'workflow_delete' id=workflow.id %}" title="Delete"><span class="glyphicon glyphicon-remove electric"></span></a>
                             {% endif %}
                         </div>

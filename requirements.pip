@@ -7,9 +7,11 @@ django-nose
 django-haystack
 psycopg2
 redis
-django-social-auth
+python-social-auth
 pep8
 pyflakes
 pyyaml
 django-crispy-forms
 rhumba
+PyOpenSSL
+treq

@@ -3,6 +3,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 
+
 class Server(models.Model):
     name = models.CharField(max_length=255)
     last_checkin = models.DateTimeField(auto_now_add=True)
@@ -33,11 +34,11 @@ class ReleaseStream(models.Model):
     def __str__(self):
         return self.__unicode__().encode('utf-8', 'replace')
 
+
 class Project(models.Model):
     name = models.CharField(max_length=255, unique=True)
     github_url = models.CharField(max_length=255)
     branch = models.CharField(max_length=255)
-
     package_manager = models.CharField(max_length=64, default='deb')
     deploy_type = models.CharField(max_length=64, default='virtualenv')
     deploy_file = models.CharField(max_length=255, default='.deploy.yaml', blank=True)
@@ -53,28 +54,25 @@ class Project(models.Model):
     notifications = models.BooleanField(default=True)
     slack_channel = models.CharField(max_length=255, default='', blank=True)
 
+
 class BuildNumbers(models.Model):
     package = models.CharField(max_length=255, unique=True)
     build_num = models.IntegerField(default=0)
 
+
 class ReleaseFlow(models.Model):
     name = models.CharField(max_length=255)
     project = models.ForeignKey(Project)
-
     stream_mode = models.IntegerField(default=0)
     stream = models.ForeignKey(ReleaseStream, null=True, blank=True)
-
     require_signoff = models.BooleanField(default=False)
     signoff_list = models.TextField(blank=True)
     quorum = models.IntegerField(default=0)
-
     notify = models.BooleanField(default=False)
     notify_list = models.TextField(blank=True)
-
     service_restart = models.BooleanField(default=True)
     service_pre_stop = models.BooleanField(default=False)
     puppet_run = models.BooleanField(default=True)
-
     auto_release = models.BooleanField(default=False)
 
     def __unicode__(self):
@@ -104,28 +102,42 @@ class ReleaseFlow(models.Model):
         else:
             return None
 
+
+class WebHook(models.Model):
+    flow = models.ForeignKey(ReleaseFlow)
+    description = models.CharField(max_length=255)
+    url = models.CharField(max_length=255)
+    method = models.CharField(max_length=4)
+    content_type = models.CharField(max_length=255)
+    payload = models.TextField(blank=True)
+    after = models.ForeignKey('self', null=True, blank=True)
+    last_response = models.TextField(blank=True)
+
+    def __unicode__(self):
+        return self.description
+
+    def __str__(self):
+        return self.__unicode__().encode('utf-8', 'replace')
+
+
 class Build(models.Model):
     project = models.ForeignKey(Project)
     build_time = models.DateTimeField(auto_now_add=True)
-
     # 0 - queued, 1 - Success, 2 - Failed, 3 - Canceled
     state = models.IntegerField(default=0)
-
     task_id = models.CharField(max_length=255, default='')
-
     log = models.TextField(default="")
-
     build_file = models.CharField(max_length=255)
+
 
 class Target(models.Model):
     server = models.ForeignKey(Server)
     release = models.ForeignKey(ReleaseFlow)
-
     # 0 - Nothing, 1 - In progress, 2 - Good, 3 - Bad
     deploy_state = models.IntegerField(default=0)
-
     current_build = models.ForeignKey(Build, null=True, blank=True)
     log = models.TextField(default="")
+
 
 class ModuleManifest(models.Model):
     name = models.CharField(max_length=255)
@@ -138,10 +150,10 @@ class ModuleManifest(models.Model):
     def __str__(self):
         return self.__unicode__().encode('utf-8', 'replace')
 
+
 class ServerManifest(models.Model):
     module = models.ForeignKey(ModuleManifest)
     value = models.TextField()
-
     release = models.ForeignKey(ReleaseFlow)
 
     def __unicode__(self):
@@ -150,15 +162,13 @@ class ServerManifest(models.Model):
     def __str__(self):
         return self.__unicode__().encode('utf-8', 'replace')
 
+
 class Release(models.Model):
     release_date = models.DateTimeField(auto_now_add=True)
     flow = models.ForeignKey(ReleaseFlow)
     build = models.ForeignKey(Build)
-
     scheduled = models.DateTimeField(blank=True, null=True)
-    
     waiting = models.BooleanField(default=True)
-
     lock = models.BooleanField(default=False)
 
     def signoff_count(self):
@@ -219,6 +229,7 @@ class Release(models.Model):
             self.release_date, self.flow.id, self.build.id, self.scheduled,
             self.waiting, self.lock
         )
+
 
 class ReleaseSignoff(models.Model):
     release = models.ForeignKey(Release)

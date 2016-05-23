@@ -137,7 +137,7 @@ INSTALLED_APPS = (
     # 'django.contrib.admindocs',
     'gunicorn',
     'raven.contrib.django.raven_compat',
-    'social_auth',
+    'social.apps.django_app.default',
     'crispy_forms',
     'sideloader',
 )
