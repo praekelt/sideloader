@@ -161,7 +161,7 @@ class Plugin(RhumbaPlugin):
             'build_id': build_id,
             'waiting': True,
             'scheduled': scheduled,
-            'release_date': datetime.datetime.now(),
+            'release_date': datetime.datetime.utcnow(),
             'lock': False
         })
 
