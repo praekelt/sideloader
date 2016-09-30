@@ -1,5 +1,7 @@
+from datetime import datetime
 import os
 
+import pytest
 from twisted.trial import unittest
 from twisted.internet import defer, reactor, task
 from twisted.web import resource, server
@@ -10,6 +12,11 @@ from sideloader.tests.fake_data import (
     RELEASESTREAM_QA, RELEASESTREAM_PROD, PROJECT_SIDELOADER,
     RELEASEFLOW_QA, RELEASEFLOW_PROD, BUILD_1, WEBHOOK_QA_1, WEBHOOK_QA_2)
 from sideloader.tests.utils import dictmerge
+
+
+@pytest.fixture
+def env_tz(monkeypatch):
+    monkeypatch.setenv('TZ', 'test-5')
 
 
 def id_sorted(rows):
@@ -127,6 +134,12 @@ class TestTasks(unittest.TestCase):
                 len(end_texts), notifications))
         for notification, end_text in zip(notifications, end_texts):
             self.assert_notification(notification, end_text)
+
+    def assert_time_between(self, start, end, timestamp, name='timestamp'):
+        self.assertTrue(
+            start <= timestamp <= end,
+            "Expected %s between %r and %r, got %r" % (
+                name, start, end, timestamp))
 
     @defer.inlineCallbacks
     def setup_db(self, project_def, build_number=1, flow_defs=()):
@@ -280,6 +293,37 @@ class TestTasks(unittest.TestCase):
         self.assertEqual(release['flow_id'], RELEASEFLOW_PROD['id'])
         self.assertEqual(release['scheduled'], None)
         self.assertEqual(release['waiting'], True)
+
+    @pytest.mark.usefixtures('env_tz')
+    @defer.inlineCallbacks
+    def test_build_and_release_timezone(self):
+        """
+        When we build a release, we send the timestamp in UTC.
+
+        The twisted database stuff assumes timezones are in UTC and sends them
+        to postgres with an explicit zero offset.
+        """
+        repo = self.mkrepo('sideloader')
+        yield self.setup_db(
+            dictmerge(PROJECT_SIDELOADER, github_url=repo.url),
+            flow_defs=[RELEASEFLOW_PROD])
+
+        start = datetime.utcnow()
+
+        yield self.plug.call_build({'build_id': 1})
+        build = yield self._wait_for_build(1)
+        self.assertEqual(build['state'], 1)
+        # FIXME: We dig directly into our fake db here, because we haven't
+        #        implemented FakeDB.getReleases() yet.
+        self.assertEqual(self.plug.db._release, {})
+        yield self.plug.call_release(
+            {'build_id': 1, 'flow_id': RELEASEFLOW_PROD['id']})
+        [release] = yield self.plug.db._release.values()
+
+        end = datetime.utcnow()
+
+        self.assert_time_between(
+            start, end, release['release_date'], 'release_date')
 
     @defer.inlineCallbacks
     def test_build_and_autorelease(self):
