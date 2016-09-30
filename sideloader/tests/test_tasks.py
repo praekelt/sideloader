@@ -294,15 +294,14 @@ class TestTasks(unittest.TestCase):
         self.assertEqual(release['scheduled'], None)
         self.assertEqual(release['waiting'], True)
 
-    @pytest.mark.xfail
     @pytest.mark.usefixtures('env_tz')
     @defer.inlineCallbacks
     def test_build_and_release_timezone(self):
         """
         When we build a release, we send the timestamp in UTC.
 
-        This test is only useful if it's run in an environment with a timezone
-        that isn't equivalent to UTC.
+        The twisted database stuff assumes timezones are in UTC and sends them
+        to postgres with an explicit zero offset.
         """
         repo = self.mkrepo('sideloader')
         yield self.setup_db(
