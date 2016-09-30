@@ -18,6 +18,7 @@ before_script:
   - git config --global user.name "Testy Testerson"
   - cp config.yaml.example config.yaml
   - gem install fpm --no-ri --no-rdoc
+  - export PATH="$(gem env gemdir)/bin:$PATH"
   - psql -c 'create database sideloader;' -U postgres
   - python manage.py migrate
   - python manage.py createsuperuser --noinput --username=root --email=root@example.com
